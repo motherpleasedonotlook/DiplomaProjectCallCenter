@@ -1,0 +1,28 @@
+﻿.chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;        /* Вместо margin у столбцов */
+    padding-bottom: 20px; /* Чтобы подписи не обрезались */
+}
+
+.bar {
+    width: 80px;
+    background-color: #26b050;
+    text-align: center;
+    color: black;
+    border-radius: 5px 5px 0 0;
+    transition: height 0.3s ease;
+    position: relative; /* Для подписей, если нужно */
+}
+.block-content {
+    justify-content: flex-end;
+    overflow: auto;
+    min-height: 350px; /* Минимальная высота */
+    padding: 20px;    /* Отступы, чтобы столбцы не прилипали к краям */
+}
+.bar-value {
+    position: absolute;
+    top: -25px;
+    width: 100%;
+    font-weight: bold;
+}

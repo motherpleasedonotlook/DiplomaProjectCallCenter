@@ -1,0 +1,156 @@
+﻿.sidebar {
+    width: 250px;
+    background-color: #f8f9fa;
+    padding: 20px;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+}
+
+.content {
+    flex-grow: 1;
+    padding: 20px;
+    background-color: #f8f9fa;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    overflow: auto;
+}
+
+.container {
+    font-family: Tahoma, Geneva, sans-serif;
+    display: flex;
+    flex-direction: row; 
+    height: 100vh; 
+    padding: 0;
+    color:#474A51;
+    overflow: auto;
+}
+
+h3,h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.profile-info {
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+input {
+    margin-bottom: 10px;
+    padding: 10px;
+    width: 250px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.button-container {
+    display: flex;                /* Используем Flexbox для расположения кнопок в ряд */
+    justify-content: center;      /* Центрируем кнопки по горизонтали */
+    align-items: center;          /* Центрируем кнопки по вертикали (если это необходимо) */
+    gap: 10px;                   /* Устанавливаем отступ между кнопками (можно настроить по желанию) */
+    margin: 0 auto;              /* Центрируем сам контейнер по горизонтали */
+    padding: 10px;               /* Добавляем отступы вокруг контейнера (по желанию) */
+}
+
+button {
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    display: inline-block;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+.error-message {
+    color: red;
+    margin-top: 10px;
+}
+
+.success-message {
+    color: green;
+    margin-top: 10px;
+}
+
+select {
+    margin-bottom: 10px;
+    padding: 10px;
+    width: 250px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    appearance: none;
+    background-color: white;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.toggle-element{
+    border: none;
+    border-radius: 5px;
+    padding: 5px;
+}
+.wrapping-header{
+    padding: 5px;
+    border: none;
+    border-radius: 5px;
+}
+.wrapping-header:hover{
+    background-color: #DCDCDC;
+}
+.block-content {
+    display: flex; /* Используем Flexbox для центрирования */
+    flex-direction: column;      /* Устанавливаем направление по колонкам */
+    align-items: center; /* Центрируем содержимое по вертикали */
+    border: 1px solid #ccc; /* Граница контейнера */
+    border-radius: 5px; /* Закругление углов */
+    margin: 0 auto; /* Центрируем сам контейнер на странице */
+    position: relative; /* Позволяет избежать смещения других элементов при изменении диаграммы */
+    padding: 10px;
+}
+.items-container{
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #ccc; /* Граница контейнера */
+    border-radius: 5px; /* Закругление углов */
+    padding: 10px;
+}
+.block-content {
+    max-height: 70vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #3498db #f1f1f1;
+}
+
+.block-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.block-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.block-content::-webkit-scrollbar-thumb {
+    background-color: #3498db;
+    border-radius: 6px;
+}
+/*Кастомизация скролла*/
+.block-content {
+    max-height: 70vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #3498db #f1f1f1;
+}
+
+.block-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.block-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.block-content::-webkit-scrollbar-thumb {
+    background-color: #3498db;
+    border-radius: 6px;
+}

@@ -1,0 +1,25 @@
+﻿@inherits LayoutComponentBase
+
+<div class="container">
+    <div class="sidebar">
+        <h2>Меню</h2>
+        <ul>
+            <li>
+                <NavLink href="/admin-profile" class="nav-link" activeClass="active">Профиль</NavLink>
+            </li>
+            <li>
+                <NavLink href="/my-projects" class="nav-link" activeClass="active">Мои проекты</NavLink>
+            </li>
+            <li>
+                <NavLink href="/my-calls" class="nav-link" activeClass="active">Мои звонки</NavLink>
+            </li>
+            <li>
+                <NavLink href="/statistics" class="nav-link" activeClass="active">Статистика</NavLink>
+            </li>
+        </ul>
+    </div>
+    <div class="content">
+        @Body
+    </div>
+</div>
+

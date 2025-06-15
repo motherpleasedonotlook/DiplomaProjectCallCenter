@@ -1,0 +1,153 @@
+﻿@page "/"
+@using System.Net
+@using Blazored.LocalStorage
+@using CallCenterBlazorUI.Objects
+@inject ILocalStorageService LocalStorage
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject AdminProfileClass AdminsProfileALive
+@inject OperatorProfileClass SelfOperatorProfileAlive
+
+
+<div class="container">
+    <h3>Вход/Регистрация</h3>
+    
+    <button class="role-toggle" @onclick="ToggleRole">
+        @(_isAdminMode ? "Режим: Администратор" : "Режим: Оператор")
+    </button>
+
+    <input @bind="_username" placeholder="Имя пользователя" />
+    <input type="password" @bind="_password" placeholder="Пароль" />
+
+    <div class="button-container">
+        <button @onclick="Login">Войти</button>
+        @if (_isAdminMode)
+        {
+        <button @onclick="Register">Зарегистрироваться</button>
+        }
+    </div>
+
+    @if (_errorMessage != null)
+    {
+    <p class="error-message">@_errorMessage</p>
+    }
+</div>
+
+@code {
+    private string? _username;
+    private string? _password;
+    private string? _errorMessage;
+    private bool _isAdminMode = true;
+    private bool _isInitialized;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // проверяем, есть ли сохраненные данные в памяти
+        await AdminsProfileALive.LoadFromLocalStorage();
+        await SelfOperatorProfileAlive.LoadFromLocalStorage();
+
+        // если пользователь уже вошел, перенаправляем на страницу
+        if (AdminsProfileALive.IdAdmin > 0)
+        {
+            Navigation.NavigateTo("/admin-profile");
+        }
+        else if (SelfOperatorProfileAlive.OperatorId > 0)
+        {
+            Navigation.NavigateTo("/operator-profile");
+        }
+
+        _isInitialized = true;
+    }
+    
+    private void ToggleRole()
+    {
+        _isAdminMode = !_isAdminMode;
+    }
+
+    private async Task Login()
+    {
+        if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrWhiteSpace(_password))
+        {
+            _errorMessage = "Заполните поля...";
+            return;
+        }
+
+        try
+        {
+            bool success;
+            if (_isAdminMode)
+            {
+                success = await AdminsProfileALive.Login(_username, _password, Http);
+                if (success)
+                {
+                    await AdminsProfileALive.SaveToLocalStorage(LocalStorage);
+                    await SelfOperatorProfileAlive.SaveToLocalStorage(LocalStorage);
+                    Navigation.NavigateTo("/admin-profile");
+                }
+                else
+                {
+                    _errorMessage = "Неверные учетные данные администратора";
+                }
+            }
+            else
+            {
+                success = await SelfOperatorProfileAlive.Login(_username, _password, Http);
+                if (success)
+                {
+                    await SelfOperatorProfileAlive.SaveToLocalStorage(LocalStorage);
+                    Navigation.NavigateTo("/operator-profile");
+                }
+                else
+                {
+                    _errorMessage = "Неверные учетные данные оператора";
+                }
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _errorMessage = ex.StatusCode == HttpStatusCode.InternalServerError 
+                ? "Сервер не отвечает..." 
+                : "Ошибка при попытке входа";
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Произошла непредвиденная ошибка";
+        }
+    }
+
+    private async Task Register()
+    {
+        if (!_isAdminMode) return;
+
+        if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrWhiteSpace(_password))
+        {
+            _errorMessage = "Заполните поля...";
+            return;
+        }
+
+        try
+        {
+            var success = await AdminsProfileALive.Register(_username, _password, Http);
+            if (success)
+            {
+                await Login();
+            }
+            else
+            {
+                _errorMessage = "Пользователь с таким именем уже существует";
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _errorMessage = ex.StatusCode == HttpStatusCode.InternalServerError
+            ? "Сервер не отвечает..."
+            : "Ошибка при регистрации";
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Произошла непредвиденная ошибка";
+        }
+    }
+   
+    
+}

@@ -1,0 +1,11 @@
+﻿li {
+    display: block;
+    border: none;
+    padding: 10px;
+    border-radius: 5px;
+    list-style-type: none;
+    gap: 5px;
+}
+li:hover{
+    background-color: #DCDCDC;
+}

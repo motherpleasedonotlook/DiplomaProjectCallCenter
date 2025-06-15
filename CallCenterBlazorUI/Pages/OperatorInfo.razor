@@ -1,0 +1,158 @@
+﻿@page "/operator-info/{operatorId:int}"
+@inject HttpClient HttpClient
+@using System.Data
+@using CallCenterBlazorUI.Objects
+@inject NavigationManager Navigation
+@inject AdminProfileClass AdminsProfileALive
+@layout Sidebar
+
+<h3>Оператор @Profile.OperatorUsername</h3>
+<div class="profile-info">
+    <div class="toggle-element">
+        <h4 class="wrapping-header" style="cursor:pointer;" @onclick="ToggleEditProfile">Редактировать профиль @(_isEditing ? "\u25b4" : "\u25be")</h4>
+        @if (_isEditing)
+        {
+        <div class="items-container">
+            <input type="text" @bind="_newUsername" placeholder="Введите новое имя ..."/>
+            <div style="margin-left: 20px; gap: 10px;">
+                <button @onclick="SaveUsername">Сохранить имя</button>
+                <button style="@_statusButtonColour" @onclick="SwitchStatus">@_statusButtonText</button>
+            </div>
+            <div class="@_messageClass" style="margin-left: 10px">@_message</div>
+        </div>
+        }
+    </div>
+</div>
+
+@if (_projectInfoIsLoading)
+{
+    <p>Загрузка данных о проектах...</p>
+}
+else if (_projectInfoLoadingHasError)
+{
+    <p style="color: red;">Ошибка загрузки</p>
+}
+else
+{
+    if (_projects != null)
+    {
+        @:<div class="project-container">
+        if (_projects.Count > 0)
+        {
+            foreach (var project in _projects)
+            {
+                <div @onclick="() => ToProject(project.ProjectId)" class="project-block">
+                    <p>
+                        @project.ProjectName<br>
+                        <strong>Создан:</strong> @(project.ProjectCreated.AddHours(project.ProjectTimeOffset).ToString("D"))
+                        @if (project.IsProjActive)
+                        {
+                            <a style="color: #0f5132"> (Активен)</a>
+                        }
+                        else
+                        {
+                            <a style="color: #6f42c1"> (Приостановлен)</a>
+                        }
+                    </p>
+                </div>
+            }
+        }
+        else
+        {
+            <p>Оператор пока не задействован в проектах.</p>
+        }
+    }
+}
+
+@code {
+    private bool _projectInfoIsLoading = true;
+    private bool _projectInfoLoadingHasError;
+    private string? _messageClass;
+    private string? _statusButtonColour;
+    [Parameter] public int OperatorId { get; set; }
+    private OperatorProfileClass? Profile { get; set; }
+    private List<ProjectDetailsClass>? _projects;    
+    
+    private bool _isEditing;
+    private string? _newUsername;
+    private string? _message;
+    private string? _statusButtonText;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Profile = AdminsProfileALive.MyOperators?.Find(op => op.OperatorId == OperatorId);
+        try
+        {
+            if (Profile == null) throw new DataException("Ошибка неактуальных данных в AdminProfileClass");
+            if (OperatorId < 1)
+            {
+                Navigation.NavigateTo("/admin-profile");
+            }
+            SwitchButtonColor(Profile.IsOprProfileActive);
+            await Profile.SetMyProjects(HttpClient);
+            _projects = Profile.MyProjects.Where(pr =>pr.ProjectClosedAt == DateTime.MinValue).OrderByDescending(pr => pr.ProjectCreated).ToList();
+            
+        }
+        catch (Exception exception)
+        {
+            _projectInfoLoadingHasError = true;
+            Console.WriteLine($"{exception.Data}: {exception.Message}");
+        }
+        finally
+        {
+            _projectInfoIsLoading = false;
+        }
+    }
+
+    private void SwitchButtonColor(bool isActive)
+    {
+        if (isActive)
+        {
+            _statusButtonColour = "background-color: red;";
+            _statusButtonText = "Деактивировать";
+        }
+        else
+        {
+            _statusButtonColour = "background-color: green;";
+            _statusButtonText = "Активировать";
+        }
+    }
+
+    private async Task SaveUsername()
+    {
+        var result = await Profile.ChangeOperatorsUsername(_newUsername, HttpClient);
+        if (result == "Имя пользователя успешно изменено")
+            _messageClass = "success-message";
+        _message = result;
+        _newUsername = Profile.OperatorUsername; //по умолчанию
+    }
+
+    private async Task SwitchStatus()
+    {
+        try
+        {
+            var result = await Profile.SwitchStatus(HttpClient);
+            SwitchButtonColor(Profile.IsOprProfileActive);
+            _message = "Статус изменён";
+            _messageClass = "success-message";
+        }
+        catch (InvalidOperationException exception)
+        {
+            _message = exception.Message;
+            _messageClass = "error-message";
+        }
+        catch (Exception exception)
+        {
+            _message = "Неизвестная ошибка: " + exception.Message;
+            _messageClass = "error-message";
+        }
+    }
+
+    private void ToggleEditProfile() =>_isEditing = !_isEditing;
+
+    private Task ToProject(int projectId)
+    {
+        Navigation.NavigateTo($"/project/{projectId}");
+        return Task.CompletedTask;
+    }
+}

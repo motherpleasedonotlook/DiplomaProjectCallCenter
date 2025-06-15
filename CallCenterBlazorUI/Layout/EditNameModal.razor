@@ -1,0 +1,41 @@
+﻿<Modal IsVisible="@IsOpen" IsVisibleChanged="@(val => IsOpen = val)">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title">@Title</h5>
+            <button type="button" class="close" @onclick="() => IsOpen = false">
+                <span>&times;</span>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <input @bind="@NewName" class="form-control" />
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button @onclick="Save" class="btn btn-primary">Сохранить</button>
+            <button @onclick="() => IsOpen = false" class="btn btn-secondary">Отмена</button>
+        </div>
+    </div>
+</Modal>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public string Title { get; set; } = "Редактирование";
+    [Parameter] public string CurrentName { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> OnSave { get; set; }
+    private bool _isProcessingClick = false;
+
+    private string NewName { get; set; } = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        NewName = CurrentName;
+    }
+
+    private async Task Save()
+    {
+        await OnSave.InvokeAsync(NewName);
+        IsOpen = false;
+    }
+}

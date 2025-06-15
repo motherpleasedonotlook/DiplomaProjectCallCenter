@@ -1,0 +1,70 @@
+﻿@page "/admin-profile"
+@using Blazored.LocalStorage
+@using CallCenterBlazorUI.Objects
+@inject NavigationManager Navigation
+@inject HttpClient HttpClient
+@inject ILocalStorageService LocalStorage
+@inject AdminProfileClass AdminsProfileALive
+@inject OperatorProfileClass SelfOperatorProfileAlive
+@layout Sidebar
+
+
+<h2>@AdminsProfileALive.AdminUsername</h2>
+
+<div class="block-content">
+    <div class="profile-info">
+        <p><strong>Зарегистрирован:</strong> @AdminsProfileALive.AdminProfileCreated.AddHours(3)</p>
+        <div class="button-container">
+            <button class="btn btn-danger" @onclick="Logout">Выйти</button>
+            <button class="btn btn-primary" @onclick="OpenEditPasswordModal">Сменить пароль</button>
+        </div>
+    </div>
+</div>
+
+<Modal IsVisible="@_isModalVisible" IsVisibleChanged="@((value) => _isModalVisible = value)">
+    <h3>Сменить пароль</h3>
+    <input type="password" @bind="_oldPassword" placeholder="Старый пароль" />
+    <input type="password" @bind="_newPassword" placeholder="Новый пароль" />
+    <button class="btn btn-primary" @onclick="ChangePassword">Сохранить пароль</button>
+    @if (!string.IsNullOrEmpty(_modalMessage))
+    {
+        <div class="@_modalMessageClass" style="margin: auto">@_modalMessage</div>
+    }
+</Modal>
+<OperatorsComponent />
+
+
+@code {
+    //окно смены пароля
+    private bool _isModalVisible;
+    private string? _oldPassword;
+    private string? _newPassword;
+    private string? _modalMessage = "error-message";
+    private string? _modalMessageClass;
+    
+    public async Task Logout()
+    {
+        await AdminsProfileALive.ClearLocalStorage(LocalStorage);
+        await SelfOperatorProfileAlive.ClearLocalStorage(LocalStorage);
+        AdminsProfileALive.Reset();
+        SelfOperatorProfileAlive.Reset();
+        Navigation.NavigateTo("/");
+    }
+
+    private void OpenEditPasswordModal()
+    {
+        _isModalVisible = true;
+        _oldPassword = string.Empty;
+        _newPassword = string.Empty;
+        _modalMessage = string.Empty;
+        _modalMessageClass = string.Empty;
+    }
+    
+    private async Task ChangePassword()
+    {
+        var result = await AdminsProfileALive.ChangePassword(Uri.EscapeDataString(_oldPassword), Uri.EscapeDataString(_newPassword),HttpClient);
+        if (result =="Пароль успешно изменен.")
+            _modalMessageClass = "success-message";
+        _modalMessage = result;
+    }
+}

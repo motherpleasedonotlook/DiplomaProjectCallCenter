@@ -1,0 +1,45 @@
+﻿@page "/project/{projectId:int}"
+@using Blazored.LocalStorage
+@using CallCenterBlazorUI.Objects
+@inject NavigationManager Navigation
+@inject HttpClient HttpClient
+@inject AdminProfileClass AdminsProfileALive
+@inject ILocalStorageService LocalStorage
+@layout Sidebar
+
+@if (_infoIsLoading)
+{
+    <p>Загрузка данных ...</p>
+}
+else if (_infoLoadingHasError)
+{
+    <p style="color: red;">Ошибка загрузки.</p>
+}
+else
+{
+    <h3>@_currentProject?.ProjectName</h3>
+    <TabMenu ProjectId="@ProjectId" CurrentProject="@_currentProject" />
+}
+
+@code {
+    [Parameter] public int ProjectId { get; set; }
+    private ProjectDetailsClass? _currentProject;
+    private bool _infoIsLoading = true;
+    private bool _infoLoadingHasError;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _currentProject = await AdminsProfileALive.GetCurrentProject(HttpClient, ProjectId);
+            _infoIsLoading = false;
+            _infoLoadingHasError = false;
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception.Message);
+            _infoIsLoading = false;
+            _infoLoadingHasError = true;
+        }
+    }
+}

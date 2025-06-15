@@ -1,0 +1,320 @@
+﻿@using CallCenterBlazorUI.Objects
+@inject HttpClient HttpClient
+@inject NavigationManager Navigation
+@inject AdminProfileClass AdminsProfileALive
+@inject IJSRuntime JsRuntime
+
+<h3>Участники проекта</h3>
+<div class="button-container">
+    <button class="btn btn-success" @onclick="ShowAddOperatorModal">
+        <strong>Добавить участника</strong>
+    </button>
+</div>
+
+@if (_operatorInfoIsLoading)
+{
+    <p>Загрузка данных об участниках проекта...</p>
+}
+else if (_operatorInfoLoadingHasError)
+{
+    <p style="color: red;">Ошибка загрузки данных. Попробуйте обновить страницу.</p>
+}
+else
+{
+    <div class="operator-container">
+        @if (_operators == null || _operators.Count == 0)
+        {
+            <p>Пока нет участников.</p>
+        }
+        else
+        {
+            foreach (var operatorProfile in _operators.Where(operatorProfile => operatorProfile.OperatorId!=AdminsProfileALive.SelfOperatorProfileId))
+            {
+                <div class="operator-block" @onclick="() => ShowOperatorActions(operatorProfile.OperatorId)">
+                    <div style="text-align: center"><strong>@operatorProfile.OperatorUsername</strong></div><br>
+                    <a>Дата создания: @operatorProfile.OperatorProfileCreated.AddHours(3).ToString("dd.MM.yyyy")</a><br>
+                    @if (operatorProfile.IsOprProfileActive)
+                    {
+                        <a style="color: #0f5132">Профиль активен</a>
+                    }
+                    else
+                    {
+                        <a style="color: darkred">Профиль деактивирован</a>
+                    }
+                </div>
+            }
+        }
+    </div>
+}
+
+<!-- Модальное окно для добавления операторов -->
+@if (_showAddOperatorModal)
+{
+    <div class="modal" style="display:block; background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <span class="close" @onclick="CloseAddOperatorModal">&times;</span>
+                <div class="modal-header">
+                    <h5 class="modal-title">Добавить операторов в проект</h5>
+                </div>
+                <div class="modal-body">
+                    @if (_availableOperatorsLoading)
+                    {
+                        <p>Загрузка списка операторов...</p>
+                    }
+                    else if (_availableOperatorsError)
+                    {
+                        <p style="color: red;">Ошибка загрузки списка операторов</p>
+                    }
+                    else if (_availableOperators == null || !_availableOperators.Any())
+                    {
+                        <p>Нет доступных операторов для добавления</p>
+                    }
+                    else
+                    {
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            @foreach (var operatorItem in _availableOperators)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" 
+                                           id="operator-@operatorItem.OperatorId" 
+                                           checked="@(_selectedOperators.Contains(operatorItem.OperatorId))"
+                                           @onchange="() => ToggleOperatorSelection(operatorItem.OperatorId)">
+                                    <label class="form-check-label" for="operator-@operatorItem.OperatorId">
+                                        @operatorItem.OperatorUsername
+                                    </label>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseAddOperatorModal">Отмена</button>
+                    <button type="button" class="btn btn-primary" @onclick="AddSelectedOperators" 
+                            disabled="@(_selectedOperators.Count == 0 || _addingOperators)">
+                        @if (_addingOperators)
+                        {
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span>Добавление...</span>
+                        }
+                        else
+                        {
+                            <span>Добавить</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Модальное окно действий с оператором -->
+@if (_showOperatorActionsModal && _selectedOperatorId > 0)
+{
+    <div class="modal" style="display:block; background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <span class="close" @onclick="CloseOperatorActionsModal">&times;</span>
+                <div class="modal-header">
+                    <h5 class="modal-title">Действия с оператором</h5>
+                </div>
+                <div class="modal-body">
+                    <p>Выберите действие для оператора:</p>
+                </div>
+                <div class="modal-footer" style="justify-content: space-between;">
+                    <button type="button" class="btn btn-danger" @onclick="RemoveOperatorFromProject"
+                            disabled="@(_removingOperator)">
+                        @if (_removingOperator)
+                        {
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span>Удаление...</span>
+                        }
+                        else
+                        {
+                            <span>Открепить от проекта</span>
+                        }
+                    </button>
+                    <button type="button" class="btn btn-info" @onclick="NavigateToOperatorProfile">Перейти в профиль</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public ProjectDetailsClass? CurrentProject { get; set; }
+    
+    private bool _operatorInfoIsLoading = true;
+    private bool _operatorInfoLoadingHasError;
+    private List<OperatorProfileClass>? _operators;
+    
+    private bool _showAddOperatorModal;
+    private List<OperatorProfileClass>? _availableOperators;
+    private bool _availableOperatorsLoading;
+    private bool _availableOperatorsError;
+    private HashSet<int> _selectedOperators = new();
+    private bool _addingOperators;
+    
+    // для окна действий с оператором
+    private bool _showOperatorActionsModal;
+    private int _selectedOperatorId;
+    private bool _removingOperator;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOperators();
+    }
+
+    private async Task LoadOperators()
+    {
+        _operatorInfoIsLoading = true;
+        _operatorInfoLoadingHasError = false;
+        try
+        {
+            _operators = await CurrentProject.GetProjectOperatorsAsync(HttpClient);
+            Console.WriteLine($"Загружено операторов: {_operators?.Count ?? 0}");
+            _operatorInfoLoadingHasError = false;
+            _operatorInfoIsLoading = false;
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine($"Ошибка при загрузке операторов: {exception}");
+            _operatorInfoLoadingHasError = true;
+            _operatorInfoIsLoading = false;
+        }
+    }
+
+    private async Task ShowAddOperatorModal()
+    {
+        _showAddOperatorModal = true;
+        _selectedOperators.Clear();
+        await LoadAvailableOperators();
+    }
+
+    private void CloseAddOperatorModal()
+    {
+        _showAddOperatorModal = false;
+        _availableOperators = null;
+    }
+
+    private async Task LoadAvailableOperators()
+    {
+        _availableOperatorsLoading = true;
+        _availableOperatorsError = false;
+        
+        try
+        {
+            _availableOperators = await AdminsProfileALive.GetAvailableOperatorsForProjectAsync(HttpClient, CurrentProject.ProjectId);
+            _availableOperatorsLoading = false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка при загрузке доступных операторов: {ex}");
+            _availableOperatorsError = true;
+            _availableOperatorsLoading = false;
+        }
+    }
+
+    private void ToggleOperatorSelection(int operatorId)
+    {
+        if (_selectedOperators.Contains(operatorId))
+        {
+            _selectedOperators.Remove(operatorId);
+        }
+        else
+        {
+            _selectedOperators.Add(operatorId);
+        }
+    }
+
+    private async Task AddSelectedOperators()
+    {
+        if (_selectedOperators.Count == 0 || CurrentProject == null) return;
+        
+        _addingOperators = true;
+        
+        try
+        {
+            var success = await CurrentProject.AddOperatorsToProjectAsync(
+                HttpClient, 
+                _selectedOperators.ToList());
+            
+            if (success)
+            {
+                await LoadOperators(); // Обновляем список операторов
+                CloseAddOperatorModal();
+            }
+            else
+            {
+                await JsRuntime.InvokeVoidAsync("alert", "Не удалось добавить операторов");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка при добавлении операторов: {ex}");
+            await JsRuntime.InvokeVoidAsync("alert", "Произошла ошибка при добавлении операторов");
+        }
+        finally
+        {
+            _addingOperators = false;
+        }
+    }
+
+    private void ShowOperatorActions(int operatorId)
+    {
+        _selectedOperatorId = operatorId;
+        _showOperatorActionsModal = true;
+    }
+
+    private void CloseOperatorActionsModal()
+    {
+        _showOperatorActionsModal = false;
+        _selectedOperatorId = 0;
+        _removingOperator = false;
+    }
+
+    private async Task RemoveOperatorFromProject()
+    {
+        if (_selectedOperatorId == 0 || CurrentProject == null) return;
+        
+        _removingOperator = true;
+        
+        try
+        {
+            var success = await CurrentProject.RemoveOperatorsFromProjectAsync(
+                HttpClient, 
+                new List<int> { _selectedOperatorId });
+            
+            if (success)
+            {
+                await LoadOperators(); // Обновляем список операторов
+                CloseOperatorActionsModal();
+            }
+            else
+            {
+                await JsRuntime.InvokeVoidAsync("alert", "Не удалось открепить оператора");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка при откреплении оператора: {ex}");
+            await JsRuntime.InvokeVoidAsync("alert", "Произошла ошибка при откреплении оператора");
+        }
+        finally
+        {
+            _removingOperator = false;
+        }
+    }
+
+    private void NavigateToOperatorProfile()
+    {
+        if (AdminsProfileALive.SelfOperatorProfileId == _selectedOperatorId)
+        {
+            Navigation.NavigateTo($"/my-calls");
+        }
+        else if (_selectedOperatorId > 0)
+        {
+            Navigation.NavigateTo($"/operator-info/{_selectedOperatorId}");
+        }
+    }
+}

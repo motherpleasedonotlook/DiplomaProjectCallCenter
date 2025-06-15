@@ -1,0 +1,767 @@
+﻿@using System.IO
+@using CallCenterBlazorUI.Objects
+@inject HttpClient HttpClient
+@inject AdminProfileClass AdminsProfileALive
+
+<h3>Подробная информация</h3>
+
+@if (CurrentProject == null)
+{
+    <p>Загрузка данных...</p>
+}
+else
+{
+    <div class="details-container">
+        <div class="project-info-section">
+            <div class="info-row">
+                <span class="info-label">Имя проекта:</span>
+                <span class="info-value">@CurrentProject.ProjectName</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Дата создания:</span>
+                <span class="info-value">@(CurrentProject.ProjectCreated.AddHours(CurrentProject.ProjectTimeOffset).ToString("dd.MM.yyyy HH:mm"))</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Статус:</span>
+                <span class="info-value">
+                    @if (CurrentProject.ProjectClosedAt == DateTime.MinValue)
+                    {
+                        if (CurrentProject.IsProjActive)
+                        {
+                            <span style="color: #0f5132">  Активен</span>
+                        }
+                        else
+                        {
+                            <span style="color: #6f42c1">  Приостановлен</span>
+                        }
+                    }
+                    else
+                    {
+                        <span style="color: darkred">  Закрыт</span>
+                    }
+                </span>
+            </div>
+            @if (CurrentProject.ProjectClosedAtNullable.HasValue)
+            {
+                <div class="info-row">
+                    <span class="info-label">Дата закрытия:</span>
+                    <span class="info-value">@(CurrentProject.ProjectClosedAt.AddHours(CurrentProject.ProjectTimeOffset).ToString("dd.MM.yyyy HH:mm"))</span>
+                </div>
+            }
+            <div class="info-row">
+                <span class="info-label">Время обзвона:</span>
+                <span class="info-value">@CurrentProject.ProjectStartsAt.ToString("HH:mm") - @CurrentProject.ProjectEndsAt.ToString("HH:mm")</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Интервал между звонками:  </span>
+                <span class="info-value">  @CurrentProject.ProjectCallInterval секунд</span>
+            </div>
+        </div>
+
+        @if (!CurrentProject.ProjectClosedAtNullable.HasValue)
+        {
+            <div class="edit-section">
+                @if (!CurrentProject.IsProjActive)
+                {
+                    <button @onclick="() => EditModalOpen = true" class="btn btn-secondary">Редактировать проект</button>
+                }
+                <button @onclick="() => ConfirmToggleStatusModalOpen = true" class="btn @(CurrentProject.IsProjActive ? "btn-warning" : "btn-success")">
+                    @(CurrentProject.IsProjActive ? "Приостановить проект" : "Запустить проект")
+                </button>
+            </div>
+        }
+        
+@*-------------------------------------------------------------------------------------------------------------*@
+        <div class="statuses-section">
+            @if (CurrentProject?.ProjectStatuses?.Count > 0)
+            {
+            <div class="status-groups-container">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4>Группы статусов</h4>
+                    @if (!CurrentProject.ProjectClosedAtNullable.HasValue && !CurrentProject.IsProjActive)
+                    {
+                    <button @onclick="OpenAddStatusGroupModal"
+                            class="btn btn-primary btn-sm">
+                        Добавить статус-группу
+                    </button>
+                    }
+                </div>
+
+                @foreach (var group in CurrentProject.ProjectStatuses)
+                {
+                <div class="status-group mb-3 p-3 border rounded">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="status-group-name font-weight-bold"
+                              @onclick="@(() => OpenEditGroupNameModal(group))"
+                              style="cursor: pointer;">
+                            @group.StatusGroupName:
+                        </span>
+
+                        @if (!CurrentProject.ProjectClosedAtNullable.HasValue && !CurrentProject.IsProjActive)
+                        {
+                        <button @onclick="@(() => OpenDeleteGroupModal(group))"
+                                class="btn btn-danger btn-sm">
+                            Удалить группу
+                        </button>
+                        }
+                    </div>
+
+                    <div class="statuses-list pl-3">
+                        @if (group.Statuses != null)
+                        {
+                        var num = 1;
+                        foreach (var status in group.Statuses.Where(status => status.StatusName != "Undefined"))
+                        {
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span @onclick="@(() => OpenEditStatusNameModal(status, group))"
+                                          style="cursor: pointer;">
+                                        @num: @status.StatusName
+                                    </span>
+
+                            @if (!CurrentProject.ProjectClosedAtNullable.HasValue && !CurrentProject.IsProjActive)
+                            {
+                            <button @onclick="@(() => OpenDeleteStatusModal(status, group))"
+                                    class="btn btn-outline-danger btn-sm">
+                                Удалить
+                            </button>
+                            }
+                        </div>
+                        num++;
+                        }
+                        }
+                    </div>
+
+                    @if (!CurrentProject.ProjectClosedAtNullable.HasValue && !CurrentProject.IsProjActive)
+                    {
+                    <button @onclick="@(() => OpenAddStatusModal(group))"
+                            class="btn btn-outline-primary btn-sm mt-2">
+                        + Добавить статус
+                    </button>
+                    }
+                </div>
+                }
+            </div>
+            }
+            else
+            {
+            <div class="no-status-groups">
+                <p>Нет доступных групп статусов</p>
+                @if (!CurrentProject.ProjectClosedAtNullable.HasValue && !CurrentProject.IsProjActive)
+                {
+                <button @onclick="OpenAddStatusGroupModal"
+                        class="btn btn-primary">
+                    Добавить статус-группу
+                </button>
+                }
+            </div>
+            }
+        </div>
+@*--------------------------------------------------------------------------------------------------------------------------*@
+
+        <div class="script-section">
+            <h4>Скрипт диалога</h4>
+            <textarea @bind="_scriptText" class="script-textarea" disabled="@(CurrentProject.IsProjActive || CurrentProject.ProjectClosedAtNullable.HasValue)"></textarea>
+
+            @if (!CurrentProject.ProjectClosedAtNullable.HasValue && !CurrentProject.IsProjActive)
+            {
+            <div class="script-actions">
+                <button @onclick="SaveScript" class="btn btn-primary">Сохранить скрипт</button>
+                <label>Выберите файл</label>
+                <InputFile OnChange="LoadScriptFromFile" accept=".txt" class="form-control" />
+            </div>
+            }
+
+            @if (!string.IsNullOrEmpty(_statusMessage))
+            {
+            <div class="alert @(_isError ? "alert-danger" : "alert-success") mt-2">
+                @_statusMessage
+            </div>
+            }
+        </div>
+
+        @if (!CurrentProject.ProjectClosedAtNullable.HasValue && !CurrentProject.IsProjActive)
+        {
+        <div class="close-project-section">
+            <button @onclick="() => ConfirmCloseModalOpen = true" class="btn btn-danger">Закрыть проект</button>
+        </div>
+        }
+    </div>
+    
+    <EditProjectModal 
+        IsOpen="@EditModalOpen" 
+        IsOpenChanged="@(val => EditModalOpen = val)"
+        Project="@CurrentProject"
+        OnSave="@HandleProjectSave" />
+    <Modal IsVisible="@ConfirmCloseModalOpen" IsVisibleChanged="@(val => ConfirmCloseModalOpen = val)">
+        <div class="confirmation-dialog">
+            <h5>Уверены, что хотите закрыть проект?</h5>
+            <p>Он будет доступен только для просмотра.</p>
+            <div class="confirmation-buttons">
+                <button @onclick="CloseProject" class="btn btn-danger">Да, закрыть</button>
+                <button @onclick="() => ConfirmCloseModalOpen = false" class="btn btn-secondary">Отмена</button>
+            </div>
+            @if (!string.IsNullOrEmpty(_closeProjectError))
+            {
+                <div class="alert alert-danger mt-3">@_closeProjectError</div>
+            }
+        </div>
+    </Modal>
+    <!-- Модальное окно подтверждения приостановки/запуска проекта -->
+    <Modal IsVisible="@ConfirmToggleStatusModalOpen" IsVisibleChanged="@(val => ConfirmToggleStatusModalOpen = val)">
+        <div class="confirmation-dialog">
+            <h5>Уверены, что хотите @(CurrentProject.IsProjActive ? "приостановить" : "запустить") проект?</h5>
+            <div class="confirmation-buttons">
+                <button @onclick="ToggleProjectStatus" class="btn @(CurrentProject.IsProjActive ? "btn-warning" : "btn-success")">
+                    Да, @(CurrentProject.IsProjActive ? "приостановить" : "запустить")
+                </button>
+                <button @onclick="() => ConfirmToggleStatusModalOpen = false" class="btn btn-secondary">Отмена</button>
+            </div>
+            @if (!string.IsNullOrEmpty(_toggleStatusError))
+            {
+                <div class="alert alert-danger mt-3">@_toggleStatusError</div>
+            }
+        </div>
+    </Modal> 
+    <!-- Модальное окно добавления статус-группы -->
+<Modal IsVisible="@AddStatusGroupModalOpen" IsVisibleChanged="@(val => AddStatusGroupModalOpen = val)">
+    <div class="confirmation-dialog">
+        <h5>Добавить новую статус-группу</h5>
+        <div class="form-group">
+            <label>Название группы:</label>
+            <input @bind="@_newStatusGroupName" class="form-control" />
+        </div>
+        
+        <div class="form-group">
+            <label>Статусы:</label>
+            @foreach (var (status, index) in _newStatuses.Select((s, i) => (s, i)))
+            {
+                <div class="d-flex align-items-center mb-2">
+                    <input @bind="@_newStatuses[index]" class="form-control mr-2" />
+                    <button @onclick="@(() => RemoveStatusField(index))" class="btn btn-outline-danger btn-sm">
+                        &times;
+                    </button>
+                </div>
+            }
+            <button @onclick="@AddStatusField" class="btn btn-outline-primary btn-sm">
+                + Добавить поле статуса
+            </button>
+        </div>
+        
+        <div class="confirmation-buttons mt-3">
+            <button @onclick="@SaveNewStatusGroup" class="btn btn-primary">Сохранить</button>
+            <button @onclick="@(() => AddStatusGroupModalOpen = false)" class="btn btn-secondary">Отмена</button>
+        </div>
+        
+        @if (!string.IsNullOrEmpty(_statusGroupError))
+        {
+            <div class="alert alert-danger mt-3">@_statusGroupError</div>
+        }
+    </div>
+</Modal>
+
+<!-- Модальное окно редактирования имени группы -->
+<Modal IsVisible="@EditGroupNameModalOpen" IsVisibleChanged="@(val => EditGroupNameModalOpen = val)">
+    <div class="confirmation-dialog">
+        <h5>Изменить название группы</h5>
+        <div class="form-group">
+            <input @bind="@_editingGroupName" class="form-control" />
+        </div>
+        <div class="confirmation-buttons">
+            <button @onclick="@SaveGroupName" class="btn btn-primary">Сохранить</button>
+            <button @onclick="@(() => EditGroupNameModalOpen = false)" class="btn btn-secondary">Отмена</button>
+        </div>
+        @if (!string.IsNullOrEmpty(_statusGroupError))
+        {
+            <div class="alert alert-danger mt-3">@_statusGroupError</div>
+        }
+    </div>
+</Modal>
+
+<!-- Модальное окно добавления статуса -->
+<Modal IsVisible="@AddStatusModalOpen" IsVisibleChanged="@(val => AddStatusModalOpen = val)">
+    <div class="confirmation-dialog">
+        <h5>Добавить новый статус</h5>
+        <div class="form-group">
+            <input @bind="@_newStatusName" class="form-control" placeholder="Название статуса" />
+        </div>
+        <div class="confirmation-buttons">
+            <button @onclick="@SaveNewStatus" class="btn btn-primary">Сохранить</button>
+            <button @onclick="@(() => AddStatusModalOpen = false)" class="btn btn-secondary">Отмена</button>
+        </div>
+        @if (!string.IsNullOrEmpty(_statusGroupError))
+        {
+            <div class="alert alert-danger mt-3">@_statusGroupError</div>
+        }
+    </div>
+</Modal>
+
+<!-- Модальное окно редактирования имени статуса -->
+<Modal IsVisible="@EditStatusNameModalOpen" IsVisibleChanged="@(val => EditStatusNameModalOpen = val)">
+    <div class="confirmation-dialog">
+        <h5>Изменить название статуса</h5>
+        <div class="form-group">
+            <input @bind="@_editingStatusName" class="form-control" />
+        </div>
+        <div class="confirmation-buttons">
+            <button @onclick="@SaveStatusName" class="btn btn-primary">Сохранить</button>
+            <button @onclick="@(() => EditStatusNameModalOpen = false)" class="btn btn-secondary">Отмена</button>
+        </div>
+        @if (!string.IsNullOrEmpty(_statusGroupError))
+        {
+            <div class="alert alert-danger mt-3">@_statusGroupError</div>
+        }
+    </div>
+</Modal>
+
+<!-- Модальное окно подтверждения удаления группы -->
+<Modal IsVisible="@ConfirmDeleteGroupModalOpen" IsVisibleChanged="@(val => ConfirmDeleteGroupModalOpen = val)">
+    <div class="confirmation-dialog">
+        <h5>Удалить группу статусов?</h5>
+        <p>Все статусы в группе будут откреплены, но не удалены из системы.</p>
+        <div class="confirmation-buttons">
+            <button @onclick="@DeleteStatusGroup" class="btn btn-danger">Удалить</button>
+            <button @onclick="@(() => ConfirmDeleteGroupModalOpen = false)" class="btn btn-secondary">Отмена</button>
+        </div>
+        @if (!string.IsNullOrEmpty(_statusGroupError))
+        {
+            <div class="alert alert-danger mt-3">@_statusGroupError</div>
+        }
+    </div>
+</Modal>
+
+<!-- Модальное окно подтверждения удаления статуса -->
+<Modal IsVisible="@ConfirmDeleteStatusModalOpen" IsVisibleChanged="@(val => ConfirmDeleteStatusModalOpen = val)">
+    <div class="confirmation-dialog">
+        <h5>Открепить статус?</h5>
+        <p>Статус будет откреплен от группы, но не удален из системы.</p>
+        <div class="confirmation-buttons">
+            <button @onclick="@DeleteStatus" class="btn btn-danger">Открепить</button>
+            <button @onclick="@(() => ConfirmDeleteStatusModalOpen = false)" class="btn btn-secondary">Отмена</button>
+        </div>
+        @if (!string.IsNullOrEmpty(_statusGroupError))
+        {
+            <div class="alert alert-danger mt-3">@_statusGroupError</div>
+        }
+    </div>
+</Modal>
+}
+
+@code {
+    //[Parameter] public int ProjectId { get; set; }
+
+    [Parameter] public ProjectDetailsClass? CurrentProject { get; set; }
+
+    private string _scriptText = string.Empty;
+    private string _statusMessage = string.Empty;
+    private bool _isError = false;
+    private bool EditModalOpen { get; set; }
+    private bool ConfirmCloseModalOpen { get; set; }
+    private string _closeProjectError = string.Empty;
+    private bool ConfirmToggleStatusModalOpen { get; set; }
+    private string _toggleStatusError = string.Empty;
+    // Новые переменные для управления модальными окнами
+    private bool AddStatusGroupModalOpen { get; set; }
+    private bool EditGroupNameModalOpen { get; set; }
+    private bool AddStatusModalOpen { get; set; }
+    private bool EditStatusNameModalOpen { get; set; }
+    private bool ConfirmDeleteGroupModalOpen { get; set; }
+    private bool ConfirmDeleteStatusModalOpen { get; set; }
+    
+    private string _newStatusGroupName = string.Empty;
+    private List<string> _newStatuses = new() { string.Empty };
+    private string _newStatusName = string.Empty;
+    private string _editingGroupName = string.Empty;
+    private string _editingStatusName = string.Empty;
+    private string _statusGroupError = string.Empty;
+    
+    private int _editingGroupId;
+    private int _editingStatusId;
+    private StatusGroupClass? _currentEditingGroup;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentProject != null)
+        {
+            _scriptText = CurrentProject.ProjectScriptText ?? string.Empty;
+        
+            try
+            {
+                await CurrentProject.GetProjectStatusGroupsAsync(HttpClient);
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                _statusMessage = $"Не удалось загрузить группы статусов: {ex.Message}";
+                _isError = true;
+            }
+        }
+    }
+
+    private async Task SaveScript()
+    {
+        if (CurrentProject == null) return;
+
+        try
+        {
+            var success = await CurrentProject.EditScriptAsync(HttpClient, _scriptText);
+
+            if (success)
+            {
+                _statusMessage = "Скрипт успешно сохранен!";
+                _isError = false;
+            }
+            else
+            {
+                _statusMessage = "Ошибка при сохранении скрипта.";
+                _isError = true;
+            }
+
+            StateHasChanged();
+        }
+        catch
+        {
+            _statusMessage = "Произошла ошибка при сохранении скрипта.";
+            _isError = true;
+            StateHasChanged();
+        }
+
+        await Task.Delay(5000);
+        _statusMessage = string.Empty;
+        StateHasChanged();
+    }
+
+    private async Task HandleProjectSave(ProjectDetailsClass updatedProject)
+    {
+        try
+        {
+            var success = await updatedProject.EditProjectAsync(
+                http: HttpClient,
+                newName: updatedProject.ProjectName,
+                newCallInterval: updatedProject.ProjectCallInterval,
+                newStartTime: updatedProject.ProjectStartsAt,
+                newEndTime: updatedProject.ProjectEndsAt
+            );
+
+            if (success)
+            {
+                // Обновляем текущий проект
+                CurrentProject = updatedProject;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Обработка ошибки, если нужно
+            Console.WriteLine($"Ошибка при сохранении проекта: {ex.Message}");
+        }
+    }
+
+    private async Task LoadScriptFromFile(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        try
+        {
+            // Ограничиваем размер файла (например, 10MB)
+            var maxFileSize = 10 * 1024 * 1024;
+            await using var stream = file.OpenReadStream(maxFileSize);
+            using var reader = new StreamReader(stream);
+            _scriptText = await reader.ReadToEndAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Ошибка при загрузке файла: {ex.Message}";
+            _isError = true;
+            await Task.Delay(5000);
+            _statusMessage = string.Empty;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CloseProject()
+    {
+        if (CurrentProject == null) return;
+
+        try
+        {
+            var success = await CurrentProject.CloseProjectAsync(HttpClient);
+
+            if (success)
+            {
+                ConfirmCloseModalOpen = false;
+                // Обновляем состояние компонента
+                StateHasChanged();
+            }
+            else
+            {
+                _closeProjectError = "Не удалось закрыть проект. Попробуйте снова.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _closeProjectError = $"Ошибка при закрытии проекта: {ex.Message}";
+        }
+    }
+
+    private bool IsProjectOnCallNow()
+    {
+        if (CurrentProject == null) return false;
+        var utcNow = DateTime.UtcNow;
+        var projectTimeNow = utcNow.AddHours(CurrentProject.ProjectTimeOffset);
+        var currentTime = TimeOnly.FromDateTime(projectTimeNow);
+        return currentTime >= CurrentProject.ProjectStartsAt && currentTime <= CurrentProject.ProjectEndsAt;
+    }
+
+    private async Task ToggleProjectStatus()
+    {
+        if (CurrentProject == null) return;
+
+        try
+        {
+            // Проверяем, находится ли проект на линии
+            if (CurrentProject.IsProjActive && IsProjectOnCallNow())
+            {
+                _toggleStatusError = "Проект сейчас на линии. Приостановка невозможна.";
+                return;
+            }
+
+            var success = await CurrentProject.ToggleStatusAsync(HttpClient);
+
+            if (success)
+            {
+                ConfirmToggleStatusModalOpen = false;
+                // Обновляем состояние компонента
+                StateHasChanged();
+            }
+            else
+            {
+                _toggleStatusError = $"Не удалось {(CurrentProject.IsProjActive ? "приостановить" : "запустить")} проект. Попробуйте снова.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _toggleStatusError = $"Ошибка: {ex.Message}";
+        }
+    }
+    
+    private async Task RefreshStatusGroups()
+    {
+        if (CurrentProject != null)
+        {
+            await CurrentProject.GetProjectStatusGroupsAsync(HttpClient);
+            StateHasChanged();
+        }
+    }
+
+    // Методы для работы с полями статусов при добавлении группы
+    private void AddStatusField()
+    {
+        _newStatuses.Add(string.Empty);
+    }
+    
+    private void RemoveStatusField(int index)
+    {
+        if (_newStatuses.Count > 1)
+        {
+            _newStatuses.RemoveAt(index);
+        }
+    }
+    
+    // Открытие модального окна добавления группы
+    private void OpenAddStatusGroupModal()
+    {
+        _newStatusGroupName = string.Empty;
+        _newStatuses = new List<string> { string.Empty };
+        _statusGroupError = string.Empty;
+        AddStatusGroupModalOpen = true;
+    }
+    
+    // Сохранение новой группы
+    private async Task SaveNewStatusGroup()
+    {
+        if (string.IsNullOrWhiteSpace(_newStatusGroupName))
+        {
+            _statusGroupError = "Название группы не может быть пустым";
+            return;
+        }
+    
+        var statusNames = _newStatuses
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .ToList();
+    
+        if (CurrentProject == null) return;
+    
+        try
+        {
+            // Убираем присваивание результата, так как метод void
+            await CurrentProject.AddStatusGroupAsync(
+                HttpClient, 
+                _newStatusGroupName, 
+                statusNames.Any() ? statusNames : null);
+        
+            // Если метод выполнился без исключения, считаем успешным
+            AddStatusGroupModalOpen = false;
+            _statusGroupError = string.Empty;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _statusGroupError = $"Не удалось создать группу статусов: {ex.Message}";
+        }
+    }
+    
+    // Открытие модального окна редактирования имени группы
+    private void OpenEditGroupNameModal(StatusGroupClass group)
+    {
+        _editingGroupName = group.StatusGroupName ?? string.Empty;
+        _editingGroupId = group.StatusGroupId;
+        _currentEditingGroup = group;
+        _statusGroupError = string.Empty;
+        EditGroupNameModalOpen = true;
+    }
+    
+    // Сохранение нового имени группы
+    private async Task SaveGroupName()
+    {
+        if (string.IsNullOrWhiteSpace(_editingGroupName))
+        {
+            _statusGroupError = "Название группы не может быть пустым";
+            return;
+        }
+        
+        if (_currentEditingGroup == null) return;
+        
+        var success = await _currentEditingGroup.RenameGroupAsync(HttpClient, _editingGroupName);
+        
+        if (!success)
+        {
+            _statusGroupError = "Не удалось изменить название группы";
+            return;
+        }
+        
+        EditGroupNameModalOpen = false;
+        StateHasChanged();
+    }
+    
+    // Открытие модального окна подтверждения удаления группы
+    private void OpenDeleteGroupModal(StatusGroupClass group)
+    {
+        _editingGroupId = group.StatusGroupId;
+        _currentEditingGroup = group;
+        _statusGroupError = string.Empty;
+        ConfirmDeleteGroupModalOpen = true;
+    }
+    
+    // Удаление группы
+    private async Task DeleteStatusGroup()
+    {
+        if (CurrentProject == null || _currentEditingGroup == null) return;
+        
+        var success = await CurrentProject.DeleteStatusGroupAsync(HttpClient, _editingGroupId);
+        
+        if (!success)
+        {
+            _statusGroupError = "Не удалось удалить группу статусов";
+            return;
+        }
+        
+        ConfirmDeleteGroupModalOpen = false;
+        StateHasChanged();
+    }
+    
+    // Открытие модального окна добавления статуса
+    private void OpenAddStatusModal(StatusGroupClass group)
+    {
+        _newStatusName = string.Empty;
+        _editingGroupId = group.StatusGroupId;
+        _currentEditingGroup = group;
+        _statusGroupError = string.Empty;
+        AddStatusModalOpen = true;
+    }
+    
+    // Сохранение нового статуса
+    private async Task SaveNewStatus()
+    {
+        if (string.IsNullOrWhiteSpace(_newStatusName))
+        {
+            _statusGroupError = "Название статуса не может быть пустым";
+            return;
+        }
+        
+        if (_currentEditingGroup == null) return;
+        
+        var success = await _currentEditingGroup.CreateAndAddStatusToGroupAsync(HttpClient, _newStatusName);
+        
+        if (!success)
+        {
+            _statusGroupError = "Не удалось добавить статус";
+            return;
+        }
+        
+        AddStatusModalOpen = false;
+        StateHasChanged();
+    }
+    
+    // Открытие модального окна редактирования имени статуса
+    private void OpenEditStatusNameModal(StatusStruct status, StatusGroupClass group)
+    {
+        _editingStatusName = status.StatusName ?? string.Empty;
+        _editingStatusId = status.StatusId;
+        _currentEditingGroup = group;
+        _statusGroupError = string.Empty;
+        EditStatusNameModalOpen = true;
+    }
+    
+    // Сохранение нового имени статуса
+    private async Task SaveStatusName()
+    {
+        if (string.IsNullOrWhiteSpace(_editingStatusName))
+        {
+            _statusGroupError = "Название статуса не может быть пустым";
+            return;
+        }
+        
+        if (_currentEditingGroup == null) return;
+        
+        var success = await _currentEditingGroup.RenameStatusAsync(
+            HttpClient, 
+            _editingStatusId, 
+            _editingStatusName);
+        
+        if (!success)
+        {
+            _statusGroupError = "Не удалось изменить название статуса";
+            return;
+        }
+        
+        EditStatusNameModalOpen = false;
+        StateHasChanged();
+    }
+    
+    // Открытие модального окна подтверждения удаления статуса
+    private void OpenDeleteStatusModal(StatusStruct status, StatusGroupClass group)
+    {
+        _editingStatusId = status.StatusId;
+        _currentEditingGroup = group;
+        _statusGroupError = string.Empty;
+        ConfirmDeleteStatusModalOpen = true;
+    }
+    
+    // Удаление (открепление) статуса
+    private async Task DeleteStatus()
+    {
+        if (_currentEditingGroup == null) return;
+        
+        var success = await _currentEditingGroup.DetachStatusAsync(HttpClient, _editingStatusId);
+        
+        if (!success)
+        {
+            _statusGroupError = "Не удалось открепить статус";
+            return;
+        }
+        
+        ConfirmDeleteStatusModalOpen = false;
+        StateHasChanged();
+    }
+    
+}

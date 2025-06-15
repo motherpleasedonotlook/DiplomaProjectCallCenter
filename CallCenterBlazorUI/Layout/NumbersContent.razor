@@ -1,0 +1,225 @@
+﻿@using CallCenterBlazorUI.Objects
+@using OfficeOpenXml
+@inject HttpClient HttpClient
+@implements IDisposable
+
+<h3>Телефонные номера проекта @CurrentProject?.ProjectName</h3>
+
+<div class="mb-3">
+    <div class="row">
+        <div class="col-md-4">
+            <select @bind="_selectedStatus" class="form-control">
+                <option value="">Все номера</option>
+                <option value="Processed">Обработанные</option>
+                <option value="Recall">Перезвонить</option>
+                <option value="NotProcessed">Не обработанные</option>
+                <option value="InvalidNumber">Неверный номер</option>
+            </select>
+        </div>
+        <div class="col-md-8">
+            <div class="input-group">
+                <InputFile OnChange="HandleFileUpload" accept=".xlsx,.xls" class="form-control" />
+                @if (_showUploadMessage)
+                {
+                    <div class="alert @(_uploadSuccess ? "alert-success" : "alert-danger") ml-2">
+                        @_uploadMessage
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (_isLoading)
+{
+    <p>Загрузка данных...</p>
+}
+else if (_clients == null || !_clients.Any())
+{
+    <p>Нет данных о клиентах</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Имя</th>
+                <th>Номер телефона</th>
+                <th>Статус обработки</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var client in FilteredClients)
+            {
+                <tr>
+                    <td>@client.ClientName</td>
+                    <td>@client.ClientPhoneNumber</td>
+                    <td>@GetStatusDisplayName(client.ClientProcessingStatus)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter] public ProjectDetailsClass? CurrentProject { get; set; }
+
+    private List<ClientCardStruct>? _clients;
+    private string _selectedStatus = "";
+    private bool _isLoading = true;
+    private bool _showUploadMessage;
+    private bool _uploadSuccess;
+    private string _uploadMessage = "";
+    private System.Timers.Timer? _messageTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _messageTimer = new System.Timers.Timer(5000);
+        _messageTimer.Elapsed += (sender, args) => 
+        {
+            _showUploadMessage = false;
+            InvokeAsync(StateHasChanged);
+        };
+        _messageTimer.AutoReset = false;
+
+        await LoadClients();
+    }
+
+    private async Task LoadClients()
+    {
+        _isLoading = true;
+        try
+        {
+            if (CurrentProject != null)
+            {
+                Console.WriteLine($"CurrentProject is null: {CurrentProject == null}");
+                Console.WriteLine($"ProjectId: {CurrentProject?.ProjectId}");
+                _clients = await CurrentProject.GetClientsAsync(HttpClient);
+            }
+        }
+        catch
+        {
+            // Обработка ошибки
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private List<ClientCardStruct> FilteredClients => 
+        _clients?.Where(c => string.IsNullOrEmpty(_selectedStatus) || 
+                            c.ClientProcessingStatus == _selectedStatus)
+               .ToList() ?? new List<ClientCardStruct>();
+
+    private string GetStatusDisplayName(string? status)
+    {
+        return status switch
+        {
+            "Processed" => "Обработан",
+            "Recall" => "Перезвонить",
+            "NotProcessed" => "Не обработан",
+            "InvalidNumber" => "Неверный номер",
+            _ => "Неизвестно"
+        };
+    }
+    
+    private async Task HandleFileUpload(InputFileChangeEventArgs e)
+    {
+        if (CurrentProject == null) return;
+
+        try
+        {
+            var file = e.File;
+            if (file == null || file.Size == 0) 
+            {
+                ShowUploadMessage("Файл пуст", false);
+                return;
+            }
+
+            // Создаем временный файл
+            var tempFilePath = Path.GetTempFileName();
+            await using (var stream = new FileStream(tempFilePath, FileMode.Create))
+            {
+                await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(stream);
+            }
+
+            var clientsData = new List<Dictionary<string, string>>();
+
+            // Используем EPPlus для чтения Excel
+            using (var package = new ExcelPackage(new FileInfo(tempFilePath)))
+            {
+                var worksheet = package.Workbook.Worksheets.FirstOrDefault();
+                if (worksheet == null)
+                {
+                    ShowUploadMessage("Лист не найден", false);
+                    return;
+                }
+
+                int rowCount = worksheet.Dimension.Rows;
+
+                if (worksheet.Cells[1, 1].Text != "Имя" || worksheet.Cells[1, 2].Text != "Номер телефона")
+                {
+                    ShowUploadMessage("Неверный формат файла", false);
+                    return;
+                }
+
+                // Читаем данные, начиная со второй строки
+                for (int row = 2; row <= rowCount; row++)
+                {
+                    var name = worksheet.Cells[row, 1].Text;
+                    var phone = worksheet.Cells[row, 2].Text;
+
+                    if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(phone))
+                    {
+                        clientsData.Add(new Dictionary<string, string>
+                        {
+                            { "Name", name.Trim() },
+                            { "PhoneNumber", "+"+phone.Trim() }
+                        });
+                    }
+                }
+            }
+
+            // Удаляем временный файл
+            File.Delete(tempFilePath);
+
+            if (clientsData.Count == 0)
+            {
+                ShowUploadMessage("Нет данных для импорта", false);
+                return;
+            }
+
+            var result = await CurrentProject.AddClientsAsync(HttpClient, clientsData);
+            
+            ShowUploadMessage(
+                result > 0 
+                    ? $"Успешно добавлено {result} клиентов" 
+                    : "Ошибка при добавлении клиентов",
+                result > 0
+            );
+
+            if (result > 0) await LoadClients();
+        }
+        catch (Exception ex)
+        {
+            ShowUploadMessage($"Ошибка: {ex.Message}", false);
+        }
+    }
+
+    private void ShowUploadMessage(string message, bool isSuccess)
+    {
+        _uploadMessage = message;
+        _uploadSuccess = isSuccess;
+        _showUploadMessage = true;
+        _messageTimer?.Stop();
+        _messageTimer?.Start();
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _messageTimer?.Dispose();
+    }
+}

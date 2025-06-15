@@ -1,0 +1,21 @@
+﻿.block-content{
+    flex-direction: row;
+}
+.items-container{
+    flex-direction: row;
+}
+.project-container{
+    display: flex;
+    flex-direction: column;
+}
+.project-block{
+    border-radius: 10px; /* Скругленные края */
+    padding: 10px; /* Внутренние отступы */
+    margin: 10px 0; /* Отступы сверху и снизу между блоками */
+    font-size: 1.2em; /* Увеличение размера шрифта */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Тень для блока */
+    cursor: pointer; /* Указатель при наведении */
+}
+.project-block:hover{
+    background-color: #DCDCDC;
+}

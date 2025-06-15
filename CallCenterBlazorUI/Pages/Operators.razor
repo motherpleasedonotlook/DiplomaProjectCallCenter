@@ -1,0 +1,210 @@
+﻿@page "/operators"
+@using System.Text.RegularExpressions
+@using CallCenterBlazorUI.Objects
+@inject HttpClient HttpClient
+@inject NavigationManager Navigation
+@inject AdminProfileClass AdminsProfileALive
+@layout Sidebar
+
+<h3>Операторы</h3>
+@if (_operatorInfoIsLoading)
+{
+    <p>Загрузка данных об операторах...</p>
+}
+else if (_operatorInfoLoadingHasError)
+{
+    <p style="color: red;">Ошибка загрузки данных. Попробуйте обновить страницу.</p>
+}
+else
+{
+    <div class="block-content">
+        <div class="button-container">
+            <button @onclick="ToggleOperators">
+                @(_showActiveOperators ? "Все" : "Активные")
+            </button>
+
+            <button @onclick="OpenAddOperatorModal">
+                <strong>+</strong>
+            </button>
+        </div>
+        
+        <div class="operator-container">
+            @if (_operators == null || _operators.Count==0)
+            {
+                //загрузка данных - вызов метода. если их и правда нет, то:
+                <p>@(_showActiveOperators ? "У вас пока нет активных операторов..." : "У вас нет операторов")</p>
+            }
+            else
+            {
+                foreach (var operatorProfile in _operators)
+                {
+                    <div @onclick="() => ToProfile(operatorProfile.OperatorId)" class="operator-block">
+                        <h4>@operatorProfile.OperatorUsername</h4>
+                        <p>Дата создания: @operatorProfile.OperatorProfileCreated.AddHours(3).ToString("dd.MM.yyyy")</p>
+                        <p>Активен: @(operatorProfile.IsOprProfileActive ? "Да" : "Нет")</p>
+                    </div>
+                }   
+            }
+        </div>
+    </div>
+}
+<Modal IsVisible="@_isModalVisible" IsVisibleChanged="@((value) => _isModalVisible = value)">
+    <h3>Добавить оператора</h3>
+    <input @bind="Username" placeholder="Имя пользователя" />
+    <input type="password" @bind="_password" placeholder="Пароль" />
+    <button style="width: 250px;" @onclick="SaveOperator">Сохранить</button>
+    @if (!string.IsNullOrEmpty(_message))
+    {
+    <div class="@_messageClass" style="margin: auto">@_message</div>
+    }
+</Modal>
+
+@code {
+    private bool _operatorInfoIsLoading = true;
+    private bool _operatorInfoLoadingHasError;
+    private List<OperatorProfileClass>? _operators;
+    private bool _showActiveOperators = true;
+    //добавление оператора
+    private bool _isModalVisible;
+    private string? Username { get; set; }
+    private string? _password;
+    private string? _message;
+    private string? _messageClass = "error-message";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOperators();
+    }
+
+    private async Task LoadOperators()
+    {
+        _operatorInfoIsLoading = true;
+        _operatorInfoLoadingHasError = false;
+        
+        try
+        {
+            // Если список пуст или null, загружаем с сервера
+            if (AdminsProfileALive.MyOperators == null || AdminsProfileALive.MyOperators.Count == 0)
+            {
+                await AdminsProfileALive.RenewOperatorsList(HttpClient);
+            }
+            
+            // Обновляем отображаемый список
+            _operators = _showActiveOperators
+                ? AdminsProfileALive.ShowActiveOperatorsOnly()
+                : AdminsProfileALive.MyOperators;
+        }
+        catch (Exception ex)
+        {
+            _operatorInfoLoadingHasError = true;
+            Console.WriteLine($"Ошибка при загрузке операторов: {ex.Message}");
+        }
+        finally
+        {
+            _operatorInfoIsLoading = false;
+            StateHasChanged(); // Явное обновление UI
+        }
+    }
+
+    private async Task ToggleOperators()
+    {
+        _showActiveOperators = !_showActiveOperators;
+        await LoadOperators();
+    }
+
+    private void ToProfile(int operatorId)
+    {
+        Navigation.NavigateTo($"/operator/{operatorId}");
+    } 
+    //для всплывающего окна
+    private void OpenAddOperatorModal()
+    {
+        _isModalVisible = true;
+        Username = string.Empty;
+        _password = string.Empty;
+        _message = string.Empty;
+        _messageClass = string.Empty;
+    }
+    
+    private async Task SaveOperator()
+    {
+        var validationMessage = ValidateInputs();
+        if (validationMessage != null)
+        {
+            _message = validationMessage;
+            _messageClass = "error-message";
+            StateHasChanged();
+            return;
+        }
+        
+        try
+        {
+            var result = await AdminsProfileALive.AddNewOperator(Username, _password, HttpClient);
+            if (result == "Оператор успешно добавлен.")
+            {
+                _messageClass = "success-message";
+                _isModalVisible = false; // Закрываем модальное окно после успеха
+                await LoadOperators(); // Перезагружаем список
+            }
+            _message = result;
+        }
+        catch (Exception ex)
+        {
+            _message = $"Ошибка при добавлении оператора: {ex.Message}";
+            _messageClass = "error-message";
+        }
+        
+        StateHasChanged();
+    }
+
+    private string? ValidateInputs()
+    {
+        if (string.IsNullOrWhiteSpace(_password) || string.IsNullOrWhiteSpace(Username))
+        {
+            return "Заполните поля...";
+        }
+
+        Username = Username.Trim();
+    
+        // Проверка имени
+        if (Username.Length > 60)
+        {
+            return "Имя не должно превышать 60 символов.";
+        }
+    
+        if (!Regex.IsMatch(Username, @"^[a-zA-Zа-яА-ЯёЁ\s]+$"))
+        {
+            return "Имя должно содержать только буквы и пробелы.";
+        }
+
+        // Проверка пароля
+        if (_password.Length < 8 || _password.Length > 20)
+        {
+            return "Длина пароля должна быть 8-20 символов.";
+        }
+    
+        if (Regex.IsMatch(_password, @"[а-яА-ЯёЁ]"))
+        {
+            return "Пароль не должен содержать русские буквы.";
+        }
+    
+        if (!Regex.IsMatch(_password, @"[A-Z]"))
+        {
+            return "Пароль должен содержать минимум одну заглавную букву.";
+        }
+    
+        if (!Regex.IsMatch(_password, @"[0-9]"))
+        {
+            return "Пароль должен содержать минимум одну цифру.";
+        }
+    
+        if (!Regex.IsMatch(_password, @"[@&?$#%^*!()]"))
+        {
+            return "Пароль должен содержать минимум один спецсимвол (@&?$#%^*!()).";
+        }
+
+        return null;
+    }
+
+
+}

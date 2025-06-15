@@ -1,0 +1,52 @@
+﻿@using CallCenterBlazorUI.Objects
+<div class="tab-menu">
+    @foreach (var tab in Tabs)
+    {
+        <button class="@(ActiveTab == tab ? "active" : "")" 
+                @onclick="() => ActivateTab(tab)">
+            @tab
+        </button>
+    }
+</div>
+<CascadingValue Value="CurrentProject">
+    <div class="tab-content">
+        @switch (ActiveTab)
+        {
+        case "Подробнее":
+        <DetailsContent CurrentProject="@CurrentProject" />
+        break;
+        case "Участники":
+        <ParticipantsContent CurrentProject="@CurrentProject" />
+        break;
+        case "Звонки":
+        <CallsContent CurrentProject="@CurrentProject"/>
+        break;
+        case "Номера":
+        <NumbersContent CurrentProject="@CurrentProject"/>
+        break;
+        }
+    </div>
+</CascadingValue>
+@code {
+    [Parameter]
+    public List<string> Tabs { get; set; } =
+    [
+        "Подробнее",
+        "Участники",
+        "Звонки",
+        "Номера"
+    ];
+
+    [Parameter]
+    public int ProjectId { get; set; }
+
+    [Parameter]
+    public ProjectDetailsClass? CurrentProject { get; set; }
+
+    private string ActiveTab { get; set; } = "Подробнее";
+
+    private void ActivateTab(string tab)
+    {
+        ActiveTab = tab;
+    }
+}

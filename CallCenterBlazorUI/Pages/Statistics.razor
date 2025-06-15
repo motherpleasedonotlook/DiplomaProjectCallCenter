@@ -1,0 +1,91 @@
+﻿@page "/statistics"
+@using CallCenterBlazorUI.Objects
+@inject AdminProfileClass AdminsProfileALive
+@inject HttpClient HttpClient
+@layout Sidebar
+
+<h3>Статистика операторов</h3>
+
+@if (_isLoading)
+{
+    <p>Загрузка статистики...</p>
+}
+else if (_hasError)
+{
+    <p style="color: red;" >Сервер статистики не отвечает.</p>
+}
+else if (_operatorRatings == null || _operatorRatings.Count==0)
+{
+    <p>Нет доступных данных для сбора статистики.</p>
+}
+else
+{
+    <select @onchange="OnChartTypeChanged">
+        <option value="FullScore">Общий рейтинг</option>
+        <option value="Speech">Речь</option>
+        <option value="ScriptFollowing">Следование скрипту</option>
+        <option value="Accuracy">Безошибочность</option>
+    </select>
+    
+    <div class="block-content">
+        <div class="chart">
+            @for (var i = 0; i < FilteredRatings.Count(); i++)
+            {
+                var rating = FilteredRatings.ElementAt(i);
+                @if (rating.Value != 0)
+                {
+                    var color = _colors[i]; 
+                    <div class="bar" style="height: @(Math.Round((rating.Value) / 5 * 300))px; background-color: @color;">
+                        <div class="bar-value">@Math.Round(rating.Value, 2)</div>
+                        <div class="bar-label">@rating.Name</div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private bool _isLoading = true;
+    private bool _hasError;
+    private List<OperatorsFullRateStruct>? _operatorRatings = [];
+    private string? _selectedChartType = "FullScore";
+    private IEnumerable<(string Name, double Value)> FilteredRatings => 
+        _operatorRatings?.Select(r => (r.OperatorName, GetRatingValue(r))) ?? Enumerable.Empty<(string Name, double Value)>();
+    private readonly List<string> _colors = ["#D8BFD8", "#DDA0DD", "#EE82EE", "#DA70D6", "#FF00FF", "#BA55D3", "#9370DB", "#8A2BE2", "#9400D3", "#800080", "#4B0082", "#6A5ACD", "#483D8B", "#7B68EE", "#4169E1", "#0000FF", "#0000CD", "#00008B"];
+    
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var url = $"/rate-srv/admin/{AdminsProfileALive.IdAdmin}/ratings";
+            _operatorRatings = await HttpClient.GetFromJsonAsync<List<OperatorsFullRateStruct>>(url);
+            _operatorRatings = _operatorRatings.Where(rate => rate.OperatorId != AdminsProfileALive.SelfOperatorProfileId).ToList();
+            _hasError = false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            _hasError = true;
+        }
+        finally
+        {
+            _isLoading = false;//загрузка все равно завершается
+        }
+    }
+    private double GetRatingValue(OperatorsFullRateStruct rating)
+    {
+        return _selectedChartType switch
+        {
+            "FullScore" => rating.FullScore,
+            "Speech" => rating.Ratings.ContainsKey("Speech") ? rating.Ratings["Speech"] : 0,
+            "ScriptFollowing" => rating.Ratings.ContainsKey("ScriptFollowing") ? rating.Ratings["ScriptFollowing"] : 0,
+            "Accuracy" => rating.Ratings.ContainsKey("Accuracy") ? rating.Ratings["Accuracy"] : 0,
+            _ => 0
+        };
+    }
+    private void OnChartTypeChanged(ChangeEventArgs e)
+    {
+        _selectedChartType = e.Value?.ToString();
+    }
+}

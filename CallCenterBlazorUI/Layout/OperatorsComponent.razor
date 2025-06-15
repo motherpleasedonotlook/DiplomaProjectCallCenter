@@ -1,0 +1,244 @@
+﻿@using System.Text.RegularExpressions
+@using Blazored.LocalStorage
+@using CallCenterBlazorUI.Objects
+@inject HttpClient HttpClient
+@inject NavigationManager Navigation
+@inject AdminProfileClass AdminsProfileALive
+@inject ILocalStorageService LocalStorage
+
+@if (_operatorInfoIsLoading)
+{
+    <p>Загрузка данных об операторах...</p>
+}
+else if (_operatorInfoLoadingHasError)
+{
+    <p style="color: red;">Ошибка загрузки данных. Попробуйте обновить страницу.</p>
+}
+else
+{
+    <div class="button-container">
+        <button class="btn btn-primary" @onclick="ToggleOperators" @onclick:preventDefault>
+            @(_showActiveOperators ? "Все" : "Активные")
+        </button>
+        <button class="btn btn-primary" @onclick="OpenAddOperatorModal" @onclick:preventDefault>
+            <strong>+</strong>
+        </button>
+    </div>
+        
+    <div class="operator-container">
+        @if (_operators == null || _operators.Count==0)
+        {
+            //загрузка данных - вызов метода. если их и правда нет, то:
+            <p>@(_showActiveOperators ? "У вас пока нет активных операторов..." : "У вас нет операторов")</p>
+        }
+        else
+        {
+            foreach (var operatorProfile in _operators)
+            {
+                <div @onclick="() => ToProfile(operatorProfile.OperatorId)" class="operator-block">
+                    <div style="text-align: center"><strong>@operatorProfile.OperatorUsername</strong></div><br>
+                    <a>Дата создания: @operatorProfile.OperatorProfileCreated.AddHours(3).ToString("dd.MM.yyyy")</a><br>
+                    @if (operatorProfile.IsOprProfileActive)
+                    {
+                        <a style="color: #0f5132">Профиль активен</a>
+                    }
+                    else
+                    {
+                        <a style="color: darkred">Профиль деактивирован</a>
+                    }
+                </div>
+            }   
+        }
+    </div>
+}
+<Modal IsVisible="@_isModalVisible" IsVisibleChanged="@((value) => _isModalVisible = value)">
+    <h3>Добавить оператора</h3>
+    <input @bind="Username" placeholder="Имя пользователя" />
+    <input type="password" @bind="_password" placeholder="Пароль" />
+    <button style="width: 250px;" @onclick="SaveOperator">Сохранить</button>
+    @if (!string.IsNullOrEmpty(_message))
+    {
+    <div class="@_messageClass" style="margin: auto">@_message</div>
+    }
+</Modal>
+
+@code {
+    private bool _operatorInfoIsLoading = true;
+    private bool _operatorInfoLoadingHasError;
+    private List<OperatorProfileClass>? _operators;
+    private bool _showActiveOperators = true;
+    //добавление оператора
+    private bool _isModalVisible;
+    private string? Username { get; set; }
+    private string? _password;
+    private string? _message;
+    private string? _messageClass = "error-message";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOperators();
+    }
+
+    private async Task LoadOperators()
+    {
+        Console.WriteLine("Начало загрузки операторов...");
+        _operatorInfoIsLoading = true;
+        _operatorInfoLoadingHasError = false;
+    
+        try
+        {
+            Console.WriteLine($"ID администратора до загрузки: {AdminsProfileALive.IdAdmin}");
+        
+            if (AdminsProfileALive.IdAdmin <= 0)
+            {
+                Console.WriteLine("Загрузка профиля из localStorage...");
+                await AdminsProfileALive.LoadFromLocalStorage();
+            }
+
+            Console.WriteLine($"ID администратора после загрузки: {AdminsProfileALive.IdAdmin}");
+        
+            if (AdminsProfileALive.IdAdmin <= 0)
+            {
+                Console.WriteLine("Ошибка: ID администратора не загружен");
+                throw new Exception("Admin profile not loaded");
+            }
+
+            Console.WriteLine("Обновление списка операторов...");
+            await AdminsProfileALive.RenewOperatorsList(HttpClient);
+        
+            _operators = _showActiveOperators
+                ? AdminsProfileALive.ShowActiveOperatorsOnly()
+                : AdminsProfileALive.MyOperators;
+            
+            Console.WriteLine($"Загружено операторов: {_operators?.Count ?? 0}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка при загрузке операторов: {ex}");
+            _operatorInfoLoadingHasError = true;
+        
+            if (AdminsProfileALive.MyOperators?.Count > 0)
+            {
+                Console.WriteLine("Использование данных из кеша");
+                _operators = _showActiveOperators
+                    ? AdminsProfileALive.ShowActiveOperatorsOnly()
+                    : AdminsProfileALive.MyOperators;
+                _operatorInfoLoadingHasError = false;
+            }
+        }
+        finally
+        {
+            _operatorInfoIsLoading = false;
+            Console.WriteLine("Загрузка операторов завершена");
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task ToggleOperators()
+    {
+        _showActiveOperators = !_showActiveOperators;
+        //актуальны ли данные
+        await AdminsProfileALive.RenewOperatorsList(HttpClient);
+        //применяем фильтр
+        _operators = _showActiveOperators 
+            ? AdminsProfileALive.ShowActiveOperatorsOnly()
+            : AdminsProfileALive.MyOperators;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ToProfile(int operatorId)
+    {
+        Navigation.NavigateTo($"/operator-info/{operatorId}");
+    } 
+    //для всплывающего окна
+    private void OpenAddOperatorModal()
+    {
+        _isModalVisible = true;
+        Username = string.Empty;
+        _password = string.Empty;
+        _message = string.Empty;
+        _messageClass = string.Empty;
+    }
+    
+    private async Task SaveOperator()
+    {
+        var validationMessage = ValidateInputs();
+        if (validationMessage != null)
+        {
+            _message = validationMessage;
+            _messageClass = "error-message";
+            StateHasChanged();
+            return;
+        }
+        
+        try
+        {
+            var result = await AdminsProfileALive.AddNewOperator(Username, _password, HttpClient);
+            if (result == "Оператор успешно добавлен.")
+            {
+                _messageClass = "success-message";
+                _isModalVisible = false; //закрываем модальное окно после успеха
+                await LoadOperators(); //перезагружаем список
+            }
+            _message = result;
+        }
+        catch (Exception ex)
+        {
+            _message = $"Ошибка при добавлении оператора: {ex.Message}";
+            _messageClass = "error-message";
+        }
+        
+        StateHasChanged();
+    }
+
+    private string? ValidateInputs()
+    {
+        if (string.IsNullOrWhiteSpace(_password) || string.IsNullOrWhiteSpace(Username))
+        {
+            return "Заполните поля...";
+        }
+
+        Username = Username.Trim();
+    
+        //проверка имени
+        if (Username.Length > 60)
+        {
+            return "Имя не должно превышать 60 символов.";
+        }
+    
+        if (!Regex.IsMatch(Username, @"^[a-zA-Zа-яА-ЯёЁ\s]+$"))
+        {
+            return "Имя должно содержать только буквы и пробелы.";
+        }
+
+        //проверка пароля
+        if (_password.Length < 8 || _password.Length > 20)
+        {
+            return "Длина пароля должна быть 8-20 символов.";
+        }
+    
+        if (Regex.IsMatch(_password, @"[а-яА-ЯёЁ]"))
+        {
+            return "Пароль не должен содержать русские буквы.";
+        }
+    
+        if (!Regex.IsMatch(_password, @"[A-Z]"))
+        {
+            return "Пароль должен содержать минимум одну заглавную букву.";
+        }
+    
+        if (!Regex.IsMatch(_password, @"[0-9]"))
+        {
+            return "Пароль должен содержать минимум одну цифру.";
+        }
+    
+        if (!Regex.IsMatch(_password, @"[@&?$#%^*!()]"))
+        {
+            return "Пароль должен содержать минимум один спецсимвол (@&?$#%^*!()).";
+        }
+
+        return null;
+    }
+
+
+}

@@ -1,0 +1,19 @@
+﻿# Rider
+.idea/
+*.sln.iml
+*.userprefs
+
+# .NET
+bin/
+obj/
+*.pdb
+*.cache
+.vs/
+*.suo
+*.user
+packages/
+.nuget/
+
+# Другое
+*.swp
+*.log

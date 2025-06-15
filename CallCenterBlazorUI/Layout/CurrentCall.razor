@@ -1,0 +1,460 @@
+﻿@using CallCenterBlazorUI.Objects
+@inject HttpClient HttpClient
+@implements IDisposable
+
+<button @onclick="HandleBack" class="btn btn-back">
+    ← Назад к списку
+</button>
+
+@if (_notificationVisible)
+{
+    <div class="notification @_notificationClass">
+        @_notificationMessage
+    </div>
+}
+
+@if (_callInfoIsLoading)
+{
+    <p>Загрузка данных о записанном звонке...</p>
+}
+else if (_callInfoLoadingHasError)
+{
+    <p style="color: red;">Сервер данных о записанных звонках не отвечает.</p>
+}
+else
+{
+    @if (Call != null)
+    {
+        <h2>Звонок @($"{Call.CallStartedAt:HH:mm} - {Call.CallEndedAt:HH:mm}")</h2>
+        <p>
+            <strong>Длительность:</strong> @Duration(Call.CallEndedAt, Call.CallStartedAt)
+        </p>
+        <audio controls>
+            <source src="@Call.PathToCallRecord" type="audio/mpeg">
+            Браузер не поддерживает audio.
+        </audio>
+
+        <div class="toggle-element">
+            <h4 class="wrapping-header" @onclick="ToggleClientInfo">Клиент @(_showClientInfo ? "\u25b4" : "\u25be")</h4>
+            @if (_showClientInfo)
+            {
+                <div class="items-container">
+                    <p>
+                        <strong>Имя клиента:</strong> @_client?.ClientName
+                    </p>
+                    <p>
+                        <strong>Номер телефона:</strong> @_client?.ClientPhoneNumber
+                    </p>
+                    <p>
+                        <strong>Статус клиента:</strong>
+                        <select @bind="ClientProcessingStatus">
+                            <option value="NotProcessed">Не обработан</option>
+                            <option value="Processed">Обработан</option>
+                            <option value="InvalidNumber">Неверный номер</option>
+                            <option value="Recall">Перезвонить</option>
+                        </select>
+                    </p>
+                </div>
+            }
+        </div>
+
+        <div class="toggle-element">
+            <h4 class="wrapping-header" @onclick="ToggleStatusChange">Статусы звонка @(_showStatusChange ? "\u25b4" : "\u25be")</h4>
+            @if (_showStatusChange)
+            {
+                <div class="items-container">
+                    @if (_statusGroups != null && _statusGroups.Any())
+                    {
+                        @foreach (var group in _statusGroups)
+                        {
+                            <div class="status-group">
+                                <h5>@group.StatusGroupName</h5>
+                                <select @bind="_selectedStatuses[group.StatusGroupId]">
+                                    @foreach (var status in group.Statuses.Where(s => s.StatusName != "Undefined"))
+                                    {
+                                        <option value="@status.StatusId">@status.StatusName</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+                        <button @onclick="SaveStatuses" class="btn btn-success">Сохранить статусы</button>
+                    }
+
+                    @if (_freeStatuses != null && _freeStatuses.Any())
+                    {
+                        <div class="free-statuses">
+                            <h5>Исторические статусы (только просмотр)</h5>
+                            <ul>
+                                @foreach (var status in _freeStatuses)
+                                {
+                                    <li>@status</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="toggle-element">
+            <h4 class="wrapping-header" @onclick="ToggleNotes">Заметка @(_showNotes ? "\u25b4" : "\u25be")</h4>
+            @if(_showNotes)
+            {
+                <div class="items-container">
+                    @if (_isEditingNote)
+                    {
+                        <textarea @bind="_currentNote.Text" rows="4" style="width: 100%;"></textarea>
+                        <button @onclick="SaveNote" class="btn btn-success">Сохранить</button>
+                        <button @onclick="CancelEditNote" class="btn btn-danger">Отмена</button>
+                    }
+                    else
+                    {
+                        <p>@(_currentNote.Text ?? "Нет заметок")</p>
+                        <button @onclick="StartEditNote" class="btn btn-primary btn-sm">Редактировать</button>
+                    }
+                </div>
+            }
+        </div>
+    }
+}
+
+@if (_gradesInfoIsLoading)
+{
+    <p>Загрузка данных об оценках записанного звонка...</p>
+}
+else if (_gradesInfoLoadingHasError)
+{
+    <p style="color: red;">Сервер статистики не отвечает.</p>
+}
+else
+{
+    <div class="toggle-element">
+        <h4 class="wrapping-header" @onclick="ToggleGrades">Оценки @(_showGrades ? "\u25b4" : "\u25be")</h4>
+        @if (_showGrades)
+        {
+            <div class="items-container">
+                <p><strong>Речь:</strong></p>
+                <select @bind="_speechScore">
+                    @for (int i = 1; i <= 5; i++)
+                    {
+                        <option value="@i">@i</option>
+                    }
+                </select>
+
+                <p><strong>Следование скрипту:</strong></p>
+                <select @bind="_scriptFollowingScore">
+                    @for (int i = 1; i <= 5; i++)
+                    {
+                        <option value="@i">@i</option>
+                    }
+                </select>
+
+                <p><strong>Безошибочность:</strong></p>
+                <select @bind="_accuracyScore">
+                    @for (int i = 1; i <= 5; i++)
+                    {
+                        <option value="@i">@i</option>
+                    }
+                </select>
+
+                <p><strong>Корректность статусов:</strong></p>
+                <select @bind="_statusesScore">
+                    @for (int i = 1; i <= 5; i++)
+                    {
+                        <option value="@i">@i</option>
+                    }
+                </select>
+
+                <button @onclick="SaveGrades" class="btn btn-success">Сохранить оценки</button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public ProjectDetailsClass? CurrentProject { get; set; }
+    [Parameter] public CallDetailsClass? Call { get; set; }
+    [Parameter] public EventCallback OnBack { get; set; }
+    
+    private bool _callInfoIsLoading = true;
+    private bool _callInfoLoadingHasError;
+    private bool _gradesInfoIsLoading = true;
+    private bool _gradesInfoLoadingHasError;
+    private ClientCardStruct? _client;
+    private List<GradeStruct>? _callGrades;
+    private List<SingleCallStatusesStruct> _currentStatuses = [];
+    
+    // UI state
+    private bool _showClientInfo = true;
+    private bool _showStatusChange = true;
+    private bool _showNotes = true;
+    private bool _showGrades = true;
+    
+    // Status management
+    private List<StatusGroupClass>? _statusGroups;
+    private List<string>? _freeStatuses;
+    private Dictionary<int, int> _selectedStatuses = new();
+    private string _clientProcessingStatus = "Processed";
+    
+    // Note management
+    private NoteStruct _currentNote;
+    private bool _isEditingNote;
+    
+    // Grades management
+    private int _speechScore = 0;
+    private int _scriptFollowingScore = 0;
+    private int _accuracyScore = 0;
+    private int _statusesScore = 0;
+    
+    // Notification
+    private bool _notificationVisible;
+    private string _notificationMessage = string.Empty;
+    private string _notificationClass = string.Empty;
+    private System.Timers.Timer? _notificationTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _notificationTimer = new System.Timers.Timer(5000);
+        _notificationTimer.Elapsed += (sender, args) => 
+        {
+            _notificationVisible = false;
+            InvokeAsync(StateHasChanged);
+        };
+        _notificationTimer.AutoReset = false;
+        
+        Console.WriteLine($"Звонок: {Call.CallId} Проект: {CurrentProject.ProjectId}");
+
+        try
+        {
+            if (Call != null)
+            {
+                // Load client data
+                _client = await Call.GetClientsDataAsync(HttpClient);
+                _clientProcessingStatus = _client?.ClientProcessingStatus ?? "Processed";
+                
+                // Load current statuses
+                _currentStatuses = await Call.GetStatusGroupsAsync(HttpClient);
+                
+                // Load status groups
+                if (CurrentProject != null)
+                {
+                    await CurrentProject.GetProjectStatusGroupsAsync(HttpClient);
+                    _statusGroups = CurrentProject.ProjectStatuses;
+                    
+                    // Initialize selected statuses
+                    if (_statusGroups != null)
+                    {
+                        foreach (var group in _statusGroups)
+                        {
+                            var currentStatus = _currentStatuses.FirstOrDefault(s => s.StatusGroupId == group.StatusGroupId);
+                            _selectedStatuses[group.StatusGroupId] = currentStatus.StatusId;
+                        }
+                    }
+                }
+                
+                // Load free statuses
+                _freeStatuses = await Call.GetFreeStatusesAsync(HttpClient);
+                
+                // Load note
+                _currentNote = await Call.GetNoteAsync(HttpClient);
+                
+                // Load grades
+                _callGrades = await Call.GetGradeListAsync(HttpClient);
+                if (_callGrades != null)
+                {
+                    foreach (var grade in _callGrades)
+                    {
+                        switch (grade.GradeType)
+                        {
+                            case "Speech": _speechScore = grade.Score; break;
+                            case "ScriptFollowing": _scriptFollowingScore = grade.Score; break;
+                            case "Accuracy": _accuracyScore = grade.Score; break;
+                            case "Statuses": _statusesScore = grade.Score; break;
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            _callInfoLoadingHasError = true;
+        }
+        finally
+        {
+            _callInfoIsLoading = false;
+            _gradesInfoIsLoading = false;
+        }
+        Console.WriteLine("Current statuses:");
+        foreach (var status in _currentStatuses)
+        {
+            Console.WriteLine($"Group: {status.StatusGroupId}, Status: {status.StatusId}");
+        }
+
+        Console.WriteLine("Selected statuses in dictionary:");
+        foreach (var (groupId, statusId) in _selectedStatuses)
+        {
+            Console.WriteLine($"Group: {groupId}, Status: {statusId}");
+        }
+    }
+    
+    private void ShowNotification(string message, bool isSuccess)
+    {
+        _notificationMessage = message;
+        _notificationClass = isSuccess ? "notification-success" : "notification-error";
+        _notificationVisible = true;
+        _notificationTimer?.Stop();
+        _notificationTimer?.Start();
+        StateHasChanged();
+    }
+    
+    private void HandleBack()
+    {
+        OnBack.InvokeAsync();
+    }
+
+    private string Duration(DateTime end, DateTime start)
+    {
+        var duration = end - start;
+        return $"{duration.Minutes} мин {duration.Seconds} сек";
+    }
+
+    private void ToggleClientInfo() => _showClientInfo = !_showClientInfo;
+    private void ToggleStatusChange() => _showStatusChange = !_showStatusChange;
+    private void ToggleNotes() => _showNotes = !_showNotes;
+    private void ToggleGrades() => _showGrades = !_showGrades;
+
+    private void StartEditNote()
+    {
+        _isEditingNote = true;
+    }
+
+    private async Task SaveNote()
+    {
+        if (Call != null)
+        {
+            bool success;
+            if (_currentNote.NoteId != 0)
+            {
+                success = await Call.EditNoteAsync(HttpClient, _currentNote.Text);
+            }
+            else
+            {
+                success = await Call.LeaveNoteAsync(HttpClient, _currentNote.Text);
+            }
+            
+            if (success)
+            {
+                _isEditingNote = false;
+                ShowNotification("Заметка успешно сохранена", true);
+            }
+            else
+            {
+                ShowNotification("Ошибка при сохранении заметки", false);
+            }
+        }
+    }
+
+    private async Task CancelEditNote()
+    {
+        _isEditingNote = false;
+        if (Call != null)
+        {
+            _currentNote = await Call.GetNoteAsync(HttpClient);
+        }
+    }
+
+    private async Task SaveStatuses()
+    {
+        if (Call == null) return;
+        
+        var anySaved = false;
+        
+        foreach (var (groupId, statusId) in _selectedStatuses)
+        {
+            if (statusId <= 0) continue;
+            var success = await Call.ChangeCallStatusAsync(HttpClient, statusId);
+            if (success) anySaved = true;
+        }
+        
+        if (anySaved)
+        {
+            ShowNotification("Статусы успешно сохранены", true);
+            _currentStatuses = await Call.GetStatusGroupsAsync(HttpClient);
+        }
+        else
+        {
+            ShowNotification("Не выбрано ни одного статуса для сохранения", false);
+        }
+    }
+
+    private async Task HandleClientStatusChange()
+    {
+        if (Call != null)
+        {
+            var success = await Call.ChangeClientStatusAsync(HttpClient, _clientProcessingStatus);
+            if (success)
+            {
+                ShowNotification("Статус клиента успешно изменен", true);
+                // Обновляем данные клиента после изменения статуса
+                _client = await Call.GetClientsDataAsync(HttpClient);
+            }
+            else
+            {
+                ShowNotification("Ошибка при изменении статуса клиента", false);
+                // Восстанавливаем предыдущее значение в случае ошибки
+                _clientProcessingStatus = _client?.ClientProcessingStatus ?? "Processed";
+            }
+            StateHasChanged();
+        }
+    }
+
+    private string ClientProcessingStatus
+    {
+        get => _clientProcessingStatus;
+        set
+        {
+            if (_clientProcessingStatus == value) return;
+            _clientProcessingStatus = value;
+            _ = HandleClientStatusChange();
+        }
+    }
+    
+    private async Task SaveGrades()
+    {
+        if (Call == null) return;
+        
+        var success = true;
+        
+        if (_callGrades == null || !_callGrades.Any())
+        {
+            // Create new grades
+            success &= await Call.PutGradeAsync(HttpClient, 0, _speechScore);
+            success &= await Call.PutGradeAsync(HttpClient, 1, _scriptFollowingScore);
+            success &= await Call.PutGradeAsync(HttpClient, 2, _accuracyScore);
+            success &= await Call.PutGradeAsync(HttpClient, 3, _statusesScore);
+        }
+        else
+        {
+            // Update existing grades
+            success &= await Call.EditGradeAsync(HttpClient, 0, _speechScore);
+            success &= await Call.EditGradeAsync(HttpClient, 1, _scriptFollowingScore);
+            success &= await Call.EditGradeAsync(HttpClient, 2, _accuracyScore);
+            success &= await Call.EditGradeAsync(HttpClient, 3, _statusesScore);
+        }
+        
+        if (success)
+        {
+            ShowNotification("Оценки успешно сохранены", true);
+        }
+        else
+        {
+            ShowNotification("Ошибка при сохранении оценок", false);
+        }
+    }
+
+    public void Dispose()
+    {
+        _notificationTimer?.Dispose();
+    }
+}
+

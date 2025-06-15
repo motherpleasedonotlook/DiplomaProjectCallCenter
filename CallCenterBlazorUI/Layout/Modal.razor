@@ -1,0 +1,23 @@
+﻿@inherits LayoutComponentBase
+
+<div class="modal @(IsVisible ? "show" : "")" style="@(IsVisible ? "display: block;" : "display: none;")">
+    <div class="modal-content">
+        <span class="close" @onclick="CloseModal">&times;</span>
+        <div class="fields">
+            @ChildContent
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback<bool> IsVisibleChanged { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private void CloseModal()
+    {
+        IsVisible = false;
+        IsVisibleChanged.InvokeAsync(IsVisible);
+    }
+}

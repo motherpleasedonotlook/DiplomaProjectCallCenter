@@ -1,0 +1,134 @@
+﻿@using System.IO
+@using CallCenterBlazorUI.Objects
+@inject HttpClient HttpClient
+@inject AdminProfileClass AdminsProfileALive
+
+<div class="modal @(_isOpen ? "modal-open" : "")">
+    <div class="modal-content">
+        <span class="close" @onclick="CloseModal">&times;</span>
+        <h3>Добавить новый проект</h3>
+        
+        <div class="form-group">
+            <label>Название проекта:</label>
+            <input type="text" @bind="_projectName" class="form-control" />
+        </div>
+        
+        <div class="form-group">
+            <label>Время начала обзвона:</label>
+            <input type="time" @bind="_startTime" class="form-control" />
+        </div>
+        
+        <div class="form-group">
+            <label>Время завершения обзвона:</label>
+            <input type="time" @bind="_endTime" class="form-control" />
+        </div>
+        
+        <div class="form-group">
+            <label>Интервал между звонками (секунды):</label>
+            <input type="number" @bind="_callInterval" class="form-control" min="1" />
+        </div>
+
+        <div class="form-group">
+            <label>Скрипт обзвона (TXT файл):</label>
+            <InputFile OnChange="LoadScriptFile" accept=".txt" class="form-control" />
+        </div>
+        
+        <button @onclick="AddProject" class="btn btn-primary" disabled="@(!IsFormValid)">Создать проект</button>
+        
+        @if (_errorMessage != null)
+        {
+            <div class="alert alert-danger">@_errorMessage</div>
+        }
+    </div>
+</div>
+
+@code {
+    private bool _isOpen;
+    private string? _projectName;
+    private TimeOnly _startTime = new TimeOnly(9, 0);
+    private TimeOnly _endTime = new TimeOnly(18, 0);
+    private int _callInterval = 5;
+    private string? _scriptText;
+    private string? _errorMessage;
+    
+    [Parameter]
+    public EventCallback OnProjectAdded { get; set; }
+    
+    private bool IsFormValid => 
+        !string.IsNullOrWhiteSpace(_projectName) && 
+        _scriptText != null && 
+        _callInterval > 0 &&
+        _startTime < _endTime;
+    
+    private int TimeZoneOffset => (int)(DateTimeOffset.Now.Offset.TotalHours);
+    
+    public void OpenModal()
+    {
+        _isOpen = true;
+        _errorMessage = null;
+    }
+    
+    private void CloseModal()
+    {
+        _isOpen = false;
+    }
+    
+    private async Task LoadScriptFile(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file != null && file.Name.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
+            {
+                using var stream = file.OpenReadStream();
+                using var reader = new StreamReader(stream);
+                _scriptText = await reader.ReadToEndAsync();
+                _errorMessage = null;
+                StateHasChanged(); // Обновляем состояние компонента
+            }
+            else
+            {
+                _errorMessage = "Пожалуйста, выберите файл в формате TXT";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Ошибка загрузки файла: {ex.Message}";
+        }
+    }
+    
+    private async Task AddProject()
+    {
+        try
+        {
+            if (!IsFormValid)
+            {
+                _errorMessage = "Пожалуйста, заполните все поля корректно";
+                return;
+            }
+            
+            var success = await AdminsProfileALive.AddNewProject(
+                HttpClient,
+                _projectName!,
+                _scriptText,
+                _callInterval,
+                _startTime,
+                _endTime,
+                TimeZoneOffset);
+            
+            if (success)
+            {
+                _isOpen = false;
+                await OnProjectAdded.InvokeAsync();
+            }
+            else
+            {
+                _errorMessage = "Не удалось создать проект. Попробуйте снова.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Ошибка: {ex.Message}";
+        }
+    }
+}

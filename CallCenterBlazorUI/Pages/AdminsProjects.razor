@@ -1,0 +1,139 @@
+﻿@page "/my-projects"
+@using Blazored.LocalStorage
+@using CallCenterBlazorUI.Objects
+@inject NavigationManager Navigation
+@inject HttpClient HttpClient
+@inject AdminProfileClass AdminsProfileALive
+@inject ILocalStorageService LocalStorage
+@layout Sidebar
+
+<h3>Мои проекты</h3>
+<AddProjectModal @ref="_addProjectModal" OnProjectAdded="RefreshProjects" />
+@if (_projectsAreLoading)
+{
+    <p>Загрузка данных о созданных проектах...</p>
+}
+else if (_projectsLoadingHasError)
+{
+    <p style="color: red;">Сервер данных о проектах не отвечает.</p>
+}
+else
+{
+    <select @onchange="OnStatTypeChanged">
+        <option value="Active">Активные проекты</option>
+        <option value="Stopped">Приостановленные</option>
+        <option value="Closed">Закрытые</option>
+    </select>
+    <button class="btn btn-primary" @onclick="OpenProjectModal">
+        <strong>+</strong>
+    </button>
+    if (AdminsProfileALive.MyProjects != null)
+    {
+        var projects = AdminsProfileALive.MyProjects;
+        projects = _selectedType switch
+        {
+            "Closed" => projects.Where(pr => pr.ProjectClosedAt != DateTime.MinValue).OrderByDescending(pr => pr.ProjectCreated).ToList(),
+            "Active" => projects.Where(pr => pr.IsProjActive).OrderByDescending(pr => pr.ProjectCreated).ToList(),
+            "Stopped" => projects.Where(pr => !pr.IsProjActive && pr.ProjectClosedAt == DateTime.MinValue).OrderByDescending(pr => pr.ProjectCreated).ToList(),
+           _ => projects
+        };
+
+        @:<div class ="project-container" >
+        if(projects.Count > 0)
+        {
+            foreach (var project in projects)
+            {
+                <div @onclick="() => ToProject(project.ProjectId)" class="project-block">
+                    <p>
+                        @project.ProjectName<br>
+                        <strong>Создан:</strong> @(project.ProjectCreated.AddHours(project.ProjectTimeOffset).ToString("D"))
+                        @if (project.ProjectClosedAt == DateTime.MinValue)
+                        {
+                            if (project.IsProjActive)
+                            {
+                                <a style="color: #0f5132"> (Активен)</a>
+                            }
+                            else
+                            {
+                                <a style="color: #6f42c1"> (Приостановлен)</a>
+                            }
+                        }
+                        else
+                        {
+                            <a style="color: darkred"> (Закрыт с @(project.ProjectClosedAt.AddHours(project.ProjectTimeOffset).ToString("D"))</a>
+                        }
+                    </p>
+                </div>
+            }
+        }
+        else
+        {
+            <p>Нет созданных проектов.</p>
+        }
+    }else
+    {
+        <p style="color: red;">Ошибка загрузки данных.</p>
+    }
+
+    @:</div>
+}
+
+
+@code {
+    private AddProjectModal? _addProjectModal;
+    bool _projectsAreLoading = true;
+    bool _projectsLoadingHasError;
+    private string? _selectedType = "Active";
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await AdminsProfileALive.LoadFromLocalStorage();
+        try
+        {
+            await AdminsProfileALive.SetMyProjects(HttpClient);
+            _projectsLoadingHasError = false;
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception.Message);
+            _projectsLoadingHasError = true;
+        }
+        finally
+        {
+            _projectsAreLoading = false;
+        }
+    }
+    private Task ToProject(int projectId)
+    {
+        Navigation.NavigateTo($"/project/{projectId}");
+        return Task.CompletedTask;
+    }
+        
+    private void OnStatTypeChanged(ChangeEventArgs e)
+    {
+        _selectedType = e.Value?.ToString();
+    }
+    private void OpenProjectModal()
+    {
+        _addProjectModal?.OpenModal();
+    }
+    private async Task RefreshProjects()
+    {
+        _projectsAreLoading = true;
+        await InvokeAsync(StateHasChanged);
+        
+        try
+        {
+            await AdminsProfileALive.SetMyProjects(HttpClient);
+            _projectsLoadingHasError = false;
+        }
+        catch
+        {
+            _projectsLoadingHasError = true;
+        }
+        finally
+        {
+            _projectsAreLoading = false;
+        }
+    }
+}

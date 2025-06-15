@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0"/>
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.3" />
+        <PackageReference Include="NUnit" Version="4.3.2" />
+        <PackageReference Include="NUnit3TestAdapter" Version="5.0.0" />
+        <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
+        <Reference Include="CallCenterRepository">
+            <HintPath>C:\Users\iness\RiderProjects\CallCenter\CallCenterRepository\bin\Debug\net9.0\CallCenterRepository.dll</HintPath>
+        </Reference>
+        <Reference Include="CallCenterDataView">
+            <HintPath>C:\Users\iness\RiderProjects\CallCenter\CallCenterDataView\bin\Debug\net9.0\CallCenterDataView.dll</HintPath>
+        </Reference>
+    </ItemGroup>
+
+</Project>

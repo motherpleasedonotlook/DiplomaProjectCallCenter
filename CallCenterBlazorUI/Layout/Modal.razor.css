@@ -1,0 +1,43 @@
+﻿.modal {
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.5); /* Черный фон с прозрачностью */
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: auto; /* Центрирование */
+    padding: 20px;
+    border: 1px solid #888;
+    max-width: 35%; /* Максимальная ширина */
+    max-height: 65%; /* Максимальная высота */
+    overflow: auto; /* Прокрутка при переполнении */
+    border-radius: 8px; /* Закругленные углы */
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+    color: darkslateblue;
+    text-decoration: none;
+    cursor: pointer;
+}
+.fields{
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /*по горизонтали*/
+    align-items: center; /*по вертикали*/
+    gap: 10px;
+    margin: 0 auto;
+}

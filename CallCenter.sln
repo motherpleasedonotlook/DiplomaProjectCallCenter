@@ -1,0 +1,58 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UserService", "UserService\UserService.csproj", "{ADE310ED-2EF4-461B-A257-0F62EE938C74}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gateway", "Gateway\Gateway.csproj", "{65E5273E-2147-4800-998B-9C6B859480F0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CallCenterRepository", "CallCenterRepository\CallCenterRepository.csproj", "{97DF465C-3E65-4016-928F-4A8C2B070661}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CallService", "CallService\CallService.csproj", "{52FB0CA5-B372-4416-8382-821BB35C96B3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RatingService", "RatingService\RatingService.csproj", "{7C2748AA-EAE3-486A-9DAE-D226FC379C18}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CallCenterBlazorUI", "CallCenterBlazorUI\CallCenterBlazorUI.csproj", "{CF723660-4487-4D9F-94A7-148934405C09}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoginService", "LoginService\LoginService.csproj", "{BA6AE7D4-3011-4ACE-B388-9E1C8B0F8092}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProjectService", "ProjectService\ProjectService.csproj", "{E74F881C-7CE8-4AEE-B773-3438E993A88B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{ADE310ED-2EF4-461B-A257-0F62EE938C74}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ADE310ED-2EF4-461B-A257-0F62EE938C74}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ADE310ED-2EF4-461B-A257-0F62EE938C74}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ADE310ED-2EF4-461B-A257-0F62EE938C74}.Release|Any CPU.Build.0 = Release|Any CPU
+		{65E5273E-2147-4800-998B-9C6B859480F0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{65E5273E-2147-4800-998B-9C6B859480F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{65E5273E-2147-4800-998B-9C6B859480F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{65E5273E-2147-4800-998B-9C6B859480F0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{97DF465C-3E65-4016-928F-4A8C2B070661}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{97DF465C-3E65-4016-928F-4A8C2B070661}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{97DF465C-3E65-4016-928F-4A8C2B070661}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{97DF465C-3E65-4016-928F-4A8C2B070661}.Release|Any CPU.Build.0 = Release|Any CPU
+		{52FB0CA5-B372-4416-8382-821BB35C96B3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{52FB0CA5-B372-4416-8382-821BB35C96B3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{52FB0CA5-B372-4416-8382-821BB35C96B3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{52FB0CA5-B372-4416-8382-821BB35C96B3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7C2748AA-EAE3-486A-9DAE-D226FC379C18}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7C2748AA-EAE3-486A-9DAE-D226FC379C18}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7C2748AA-EAE3-486A-9DAE-D226FC379C18}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7C2748AA-EAE3-486A-9DAE-D226FC379C18}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CF723660-4487-4D9F-94A7-148934405C09}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CF723660-4487-4D9F-94A7-148934405C09}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CF723660-4487-4D9F-94A7-148934405C09}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CF723660-4487-4D9F-94A7-148934405C09}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BA6AE7D4-3011-4ACE-B388-9E1C8B0F8092}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA6AE7D4-3011-4ACE-B388-9E1C8B0F8092}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA6AE7D4-3011-4ACE-B388-9E1C8B0F8092}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BA6AE7D4-3011-4ACE-B388-9E1C8B0F8092}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E74F881C-7CE8-4AEE-B773-3438E993A88B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E74F881C-7CE8-4AEE-B773-3438E993A88B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E74F881C-7CE8-4AEE-B773-3438E993A88B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E74F881C-7CE8-4AEE-B773-3438E993A88B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

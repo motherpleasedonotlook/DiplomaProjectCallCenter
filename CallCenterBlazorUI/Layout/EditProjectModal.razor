@@ -1,0 +1,107 @@
+﻿@using CallCenterBlazorUI.Objects
+
+<div class="modal @(IsOpen ? "modal-open" : "")">
+    <div class="modal-content">
+        <span class="close" @onclick="Close">&times;</span>
+        <h3>Редактировать проект</h3>
+        
+        <div class="form-group">
+            <label>Название проекта:</label>
+            <input type="text" @bind="ProjectName" class="form-control" />
+        </div>
+        
+        <div class="form-group">
+            <label>Время начала обзвона:</label>
+            <input type="time" @bind="StartTime" class="form-control" />
+        </div>
+        
+        <div class="form-group">
+            <label>Время завершения обзвона:</label>
+            <input type="time" @bind="EndTime" class="form-control" />
+        </div>
+        
+        <div class="form-group">
+            <label>Интервал между звонками (секунды):</label>
+            <input type="number" @bind="CallInterval" class="form-control" min="1" />
+        </div>
+
+        <button @onclick="Save" class="btn btn-primary" disabled="@(!IsFormValid)">Сохранить</button>
+        
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div class="alert alert-danger mt-2">@ErrorMessage</div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> IsOpenChanged { get; set; }
+
+    [Parameter]
+    public ProjectDetailsClass Project { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback<ProjectDetailsClass> OnSave { get; set; }
+
+    private string ProjectName { get; set; } = string.Empty;
+    private TimeOnly StartTime { get; set; }
+    private TimeOnly EndTime { get; set; }
+    private int CallInterval { get; set; }
+    private string ErrorMessage { get; set; } = string.Empty;
+
+    private bool IsFormValid => 
+        !string.IsNullOrWhiteSpace(ProjectName) && 
+        CallInterval > 0 &&
+        StartTime < EndTime;
+
+    protected override void OnParametersSet()
+    {
+        if (Project != null)
+        {
+            ProjectName = Project.ProjectName ?? string.Empty;
+            StartTime = Project.ProjectStartsAt;
+            EndTime = Project.ProjectEndsAt;
+            CallInterval = Project.ProjectCallInterval;
+        }
+    }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(IsOpen);
+    }
+
+    private async Task Save()
+    {
+        try
+        {
+            // Создаем временный объект с изменениями
+            var updatedProject = new ProjectDetailsClass
+            {
+                ProjectId = Project.ProjectId,
+                ProjectName = ProjectName,
+                ProjectStartsAt = StartTime,
+                ProjectEndsAt = EndTime,
+                ProjectCallInterval = CallInterval,
+                // Копируем остальные свойства из оригинального проекта
+                ProjectCreated = Project.ProjectCreated,
+                ProjectLastUpdate = Project.ProjectLastUpdate,
+                IsProjActive = Project.IsProjActive,
+                ProjectScriptText = Project.ProjectScriptText,
+                ProjectTimeOffset = Project.ProjectTimeOffset,
+                ProjectClosedAtNullable = Project.ProjectClosedAtNullable
+            };
+
+            await OnSave.InvokeAsync(updatedProject);
+            await Close();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Ошибка: {ex.Message}";
+        }
+    }
+}

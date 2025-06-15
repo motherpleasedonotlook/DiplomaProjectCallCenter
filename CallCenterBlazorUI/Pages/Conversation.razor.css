@@ -1,0 +1,7 @@
+﻿.items-container{
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #ccc; /* Граница контейнера */
+    border-radius: 5px; /* Закругление углов */
+    padding: 10px;
+}

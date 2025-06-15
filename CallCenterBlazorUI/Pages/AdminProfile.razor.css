@@ -1,0 +1,40 @@
+﻿.exit {
+    background-color: #dc3545;
+    margin-top: 10px;
+    width: 150px;
+}
+
+button.exit:hover {
+    background-color: #c82333;
+}
+.block-content {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 20px;
+    margin: 0 auto 20px;
+    width: auto;
+}
+
+.modal-content{
+    max-width: 50%; /* Максимальная ширина */
+    max-height: 60%; /* Максимальная высота */
+}
+
+.profile-info {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.profile-info p {
+    margin: 0;
+    padding: 6px 0;
+    font-size: 1.1em;
+}
+
+.profile-info strong {
+    color: #495057;
+    font-weight: 600;
+    min-width: 120px;
+    display: inline-block;
+}

@@ -1,0 +1,127 @@
+﻿.details-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    margin-top: 1rem;
+}
+
+.project-info-section {
+    flex: 1;
+    border: 1px solid #dee2e6;
+    padding: 1rem;
+    border-radius: 0.25rem;
+}
+
+.script-section {
+    flex: 2;
+    border: 1px solid #dee2e6;
+    padding: 1rem;
+    border-radius: 0.25rem;
+}
+.btn-secondary{
+    margin-right: 10px;
+}
+.btn-warning{
+    background-color: #8b78bc;
+    border-color: #8b78bc;
+}
+.btn-warning:hover{
+    background-color: rgb(112, 97, 152);
+}
+.btn-warning:active{
+    background-color: rgb(77, 67, 106);
+    border-color: rgb(77, 67, 106);
+}
+
+.info-row {
+    display: flex;
+    margin-bottom: 0.75rem;
+}
+
+.info-label {
+    font-weight: 600;
+    min-width: 200px;
+}
+
+.info-value {
+    flex: 1;
+}
+
+.script-textarea {
+    width: 100%;
+    height: 300px;
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    resize: vertical;
+    font-family: monospace;
+}
+
+.script-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+.statuses-section {
+    margin: 20px 0;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+.status-groups-container h4 {
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.status-group {
+    margin-bottom: 10px;
+    padding: 10px;
+    background-color: white;
+    border: 1px solid #eee;
+    border-radius: 4px;
+}
+
+.status-group-name {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+.statuses-list {
+    color: #555;
+}
+
+.no-statuses {
+    font-style: italic;
+    color: #999;
+}
+
+.no-status-groups {
+    color: #777;
+    font-style: italic;
+}
+.status-group {
+    background-color: #f8f9fa;
+    transition: background-color 0.2s;
+}
+
+.status-group:hover {
+    background-color: #e9ecef;
+}
+
+.status-group-name {
+    font-size: 1.1rem;
+    color: #495057;
+}
+
+.status-group-name:hover {
+    color: #0d6efd;
+    text-decoration: underline;
+}
+
+.statuses-list span:hover {
+    color: #0d6efd;
+    text-decoration: underline;
+    cursor: pointer;
+}

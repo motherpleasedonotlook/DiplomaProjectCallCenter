@@ -1,0 +1,189 @@
+﻿@using CallCenterBlazorUI.Objects
+@inject HttpClient HttpClient
+@inject NavigationManager Navigation
+
+
+@if (ShowCallDetails && SelectedCall != null)
+{
+    <CurrentCall 
+        CurrentProject="@CurrentProject" 
+        Call="@SelectedCall" 
+        OnBack="@(() => ShowCallDetails = false)" />
+}
+else
+{
+    <h3>Звонки в рамках проекта "@CurrentProject?.ProjectName"</h3>
+
+    <div class="filters-container">
+        <div class="filter-group">
+            <label>Участник:</label>
+            <select @onchange="OnParticipantChanged" class="form-control">
+                <option value="0">Все участники</option>
+                @if (ProjectOperators != null)
+                {
+                    @foreach (var _operator in ProjectOperators)
+                    {
+                        <option value="@_operator.OperatorId">@_operator.OperatorUsername</option>
+                    }
+                }
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label>Период:</label>
+            <div class="date-range">
+                <input type="datetime-local"
+                       value="@StartDate.ToString("yyyy-MM-ddTHH:mm")"
+                       @onchange="@(e => StartDate = DateTime.Parse(e.Value?.ToString() ?? ""))"
+                       class="form-control"/>
+                <span>до</span>
+                <input type="datetime-local"
+                       value="@EndDate.ToString("yyyy-MM-ddTHH:mm")"
+                       @onchange="@(e => EndDate = DateTime.Parse(e.Value?.ToString() ?? ""))"
+                       class="form-control"/>
+                <button @onclick="ApplyDateFilter" class="btn btn-primary">Применить</button>
+            </div>
+        </div>
+    </div>
+
+    @if (IsLoading)
+    {
+        <p>Загрузка данных...</p>
+    }
+    else if (FilteredCalls == null || !FilteredCalls.Any())
+    {
+        <p>Нет данных о звонках</p>
+    }
+    else
+    {
+        <div class="calls-container">
+            @{
+                var num = 1;
+                foreach (var call in FilteredCalls)
+                {
+                    <div class="call-card" @onclick="() => ShowCall(call)">
+                        <div class="call-header">
+                            <span class="call-id">Звонок #@num</span>
+                            <span class="call-operator">Оператор: @(GetOperatorName(call.OperatorId))</span>
+                        </div>
+                        <div class="call-details">
+                            <div class="call-time">
+                                <span>Начало: @call.CallStartedAt.ToString("g")</span>
+                                <span>Окончание: @call.CallEndedAt.ToString("g")</span>
+                            </div>
+                            <div class="call-duration">
+                                Длительность: @GetCallDuration(call.CallStartedAt, call.CallEndedAt)
+                            </div>
+                        </div>
+                    </div>
+                    num++;
+                }
+            }
+        </div>
+    }
+}
+
+@code {
+    //[Parameter] public int ProjectId { get; set; }
+    [Parameter] public ProjectDetailsClass? CurrentProject { get; set; }
+    
+    private bool ShowCallDetails { get; set; } = false;
+    private CallDetailsClass? SelectedCall { get; set; }
+
+    private List<OperatorProfileClass>? ProjectOperators { get; set; }
+    private List<CallDetailsClass>? AllCalls { get; set; }
+    private List<CallDetailsClass>? FilteredCalls { get; set; }
+    private int SelectedOperatorId { get; set; } = 0;
+    private DateTime StartDate { get; set; }
+    private DateTime EndDate { get; set; }
+    private bool IsLoading { get; set; } = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentProject == null)
+        {
+            return;
+        }
+        //даты по умолчанию
+        var today = DateTime.Today;
+        StartDate = new DateTime(today.Year, today.Month, today.Day) 
+                  + CurrentProject.ProjectStartsAt.ToTimeSpan();
+        EndDate = new DateTime(today.Year, today.Month, today.Day) 
+                + CurrentProject.ProjectEndsAt.ToTimeSpan();
+        
+        if (EndDate < StartDate)
+        {
+            EndDate = EndDate.AddDays(1);
+        }
+
+        await LoadOperators();
+        await LoadCalls();
+    }
+    
+    private void ShowCall(CallDetailsClass call)
+    {
+        SelectedCall = call;
+        ShowCallDetails = true;
+    }
+
+    private async Task LoadOperators()
+    {
+        if (CurrentProject != null)
+        {
+            ProjectOperators = await CurrentProject.GetProjectOperatorsAsync(HttpClient);
+        }
+    }
+
+    private async Task LoadCalls()
+    {
+        IsLoading = true;
+        StateHasChanged();
+
+        if (CurrentProject != null)
+        {
+            AllCalls = await CurrentProject.GetCallsByProject(HttpClient, StartDate.AddHours(CurrentProject.ProjectTimeOffset), EndDate.AddHours(CurrentProject.ProjectTimeOffset));
+            ApplyFilters();
+        }
+
+        IsLoading = false;
+        StateHasChanged();
+    }
+
+    private void ApplyFilters()
+    {
+        if (AllCalls == null)
+        {
+            FilteredCalls = null;
+            return;
+        }
+
+        FilteredCalls = SelectedOperatorId == 0
+            ? AllCalls
+            : AllCalls.Where(c => c.OperatorId == SelectedOperatorId).ToList();
+    }
+
+    private void OnParticipantChanged(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var operatorId)) return;
+        SelectedOperatorId = operatorId;
+        ApplyFilters();
+    }
+
+    private async Task ApplyDateFilter()
+    {
+        await LoadCalls();
+    }
+
+    private string GetOperatorName(int operatorId)
+    {
+        return ProjectOperators?.FirstOrDefault(o => o.OperatorId == operatorId)?.OperatorUsername ?? "Неизвестный оператор";
+    }
+
+    private string GetCallDuration(DateTime start, DateTime end)
+    {
+        var duration = end - start;
+        return $"{duration.Hours}ч {duration.Minutes}м {duration.Seconds}с";
+    }
+
+    
+}
